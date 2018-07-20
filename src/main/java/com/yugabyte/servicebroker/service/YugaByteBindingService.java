@@ -12,6 +12,10 @@
  */
 package com.yugabyte.servicebroker.service;
 
+import com.yugabyte.servicebroker.model.ServiceBinding;
+import com.yugabyte.servicebroker.repository.ServiceBindingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.servicebroker.exception.ServiceInstanceBindingDoesNotExistException;
 import org.springframework.cloud.servicebroker.model.binding.CreateServiceInstanceAppBindingResponse;
 import org.springframework.cloud.servicebroker.model.binding.CreateServiceInstanceBindingRequest;
 import org.springframework.cloud.servicebroker.model.binding.CreateServiceInstanceBindingResponse;
@@ -22,57 +26,71 @@ import org.springframework.cloud.servicebroker.model.binding.GetServiceInstanceB
 import org.springframework.cloud.servicebroker.service.ServiceInstanceBindingService;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+import java.util.Optional;
+
 @Service
 public class YugaByteBindingService implements ServiceInstanceBindingService {
 
+  private final ServiceBindingRepository bindingRepository;
+
+  @Autowired
+  private YugaByteAdminService adminService;
+
+  public YugaByteBindingService(ServiceBindingRepository bindingRepository) {
+    this.bindingRepository = bindingRepository;
+  }
+
+
   @Override
   public CreateServiceInstanceBindingResponse createServiceInstanceBinding(CreateServiceInstanceBindingRequest request) {
-    String serviceInstanceId = request.getServiceInstanceId();
     String bindingId = request.getBindingId();
+    Optional<ServiceBinding> binding = bindingRepository.findById(bindingId);
+    CreateServiceInstanceAppBindingResponse.CreateServiceInstanceAppBindingResponseBuilder responseBuilder =
+        CreateServiceInstanceAppBindingResponse.builder();
 
-    //
-    // create credentials and store for later retrieval
-    //
+    if (binding.isPresent()) {
+      responseBuilder
+          .bindingExisted(true)
+          .credentials(binding.get().getCredentials());
+    } else {
+      Map<String, Object> serviceEndpoints = adminService.getUniverseServiceEndpoints(request.getServiceInstanceId());
+      ServiceBinding serviceBinding =
+          new ServiceBinding(request.getBindingId(), serviceEndpoints);
+      bindingRepository.save(serviceBinding);
 
-    String url = new String(/* build a URL to access the service instance */);
-    String bindingUsername = new String(/* create a user */);
-    String bindingPassword = new String(/* create a password */);
+      responseBuilder
+          .bindingExisted(false)
+          .credentials(serviceEndpoints);
+    }
 
-    return CreateServiceInstanceAppBindingResponse.builder()
-        .credentials("url", url)
-        .credentials("username", bindingUsername)
-        .credentials("password", bindingPassword)
-        .bindingExisted(false)
-        .build();
+    return responseBuilder.build();
   }
 
   @Override
   public void deleteServiceInstanceBinding(DeleteServiceInstanceBindingRequest request) {
-    String serviceInstanceId = request.getServiceInstanceId();
     String bindingId = request.getBindingId();
+    Optional<ServiceBinding> serviceBinding = bindingRepository.findById(bindingId);
 
-    //
-    // delete any binding-specific credentials
-    //
+    if (bindingRepository.existsById(bindingId)) {
+      bindingRepository.deleteById(bindingId);
+    } else {
+      throw new ServiceInstanceBindingDoesNotExistException(bindingId);
+    }
   }
 
   @Override
   public GetServiceInstanceBindingResponse getServiceInstanceBinding(GetServiceInstanceBindingRequest request) {
-    String serviceInstanceId = request.getServiceInstanceId();
     String bindingId = request.getBindingId();
 
-    //
-    // retrieve the details of the specified service binding
-    //
+    Optional<ServiceBinding> serviceBinding = bindingRepository.findById(bindingId);
 
-    String url = new String(/* retrieved URL */);
-    String bindingUsername = new String(/* retrieved user */);
-    String bindingPassword = new String(/* retrieved password */);
-
-    return GetServiceInstanceAppBindingResponse.builder()
-        .credentials("username", bindingUsername)
-        .credentials("password", bindingPassword)
-        .credentials("url", url)
-        .build();
+    if (serviceBinding.isPresent()) {
+      return GetServiceInstanceAppBindingResponse.builder()
+          .credentials(serviceBinding.get().getCredentials())
+          .build();
+    } else {
+      throw new ServiceInstanceBindingDoesNotExistException(bindingId);
+    }
   }
 }

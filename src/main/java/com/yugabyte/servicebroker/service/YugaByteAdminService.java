@@ -17,30 +17,42 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yugabyte.servicebroker.config.YugaByteServiceConfig;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
+import com.yugabyte.servicebroker.model.ServiceInstance;
+import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
+import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class YugaByteAdminService {
 
   private YugaByteServiceConfig adminConfig;
+  private ServiceInstanceRepository instanceRepository;
+
   private String authToken;
   private String customerUUID;
 
   @Autowired
-  public YugaByteAdminService(YugaByteServiceConfig adminConfig) {
+  public YugaByteAdminService(YugaByteServiceConfig adminConfig,
+                              ServiceInstanceRepository instanceRepository) {
     this.adminConfig = adminConfig;
+    this.instanceRepository = instanceRepository;
     authenticate();
   }
 
@@ -62,6 +74,21 @@ public class YugaByteAdminService {
       getRequest.setHeader("X-AUTH-TOKEN", authToken);
     }
     return makeRequest(getRequest);
+  }
+
+  public String doGetRaw(String endpoint) {
+    HttpGet getRequest = new HttpGet(endpoint);
+    getRequest.setHeader("Accept", "application/json");
+    getRequest.setHeader("Content-type", "application/json");
+    try {
+      CloseableHttpClient client = HttpClients.createDefault();
+      CloseableHttpResponse response = client.execute(getRequest);
+      ResponseHandler<String> handler = new BasicResponseHandler();
+      return handler.handleResponse(response);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return null;
   }
 
   public JsonNode doPost(String endpoint, JsonNode params) {
@@ -133,5 +160,32 @@ public class YugaByteAdminService {
   public JsonNode deleteUniverse(String universeUUID) {
     String url = String.format("%s/universes/%s", getApiBaseUrl(), universeUUID);
     return doDelete(url);
+  }
+
+  public JsonNode getUniverseByServiceInstance(String instanceId) {
+    String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
+    return getUniverse(universeUUID);
+  }
+
+  private String getUniverseUUIDFromServiceInstance(String instanceId) {
+    Optional<ServiceInstance> serviceInstance = instanceRepository.findById(instanceId);
+
+    if (!serviceInstance.isPresent()) {
+      throw new ServiceInstanceDoesNotExistException(instanceId);
+    }
+    ServiceInstance si = serviceInstance.get();
+    return si.getUniverseUUID();
+  }
+
+  public Map<String, Object> getUniverseServiceEndpoints(String instanceId) {
+    String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
+    String url = String.format("%s/universes/%s/yqlservers", getApiBaseUrl(), universeUUID);
+    String yqlServers = doGetRaw(url);
+    url = String.format("%s/universes/%s/redisservers", getApiBaseUrl(), universeUUID);
+    String yedisServers = doGetRaw(url);
+    Map<String, Object> endpoints = new HashMap<>();
+    endpoints.put("yql", yqlServers.replaceAll("^\"|\"$", ""));
+    endpoints.put("yedis", yedisServers.replaceAll("^\"|\"$", ""));
+    return endpoints;
   }
 }
