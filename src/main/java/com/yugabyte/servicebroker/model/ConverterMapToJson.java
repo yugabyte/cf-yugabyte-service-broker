@@ -2,6 +2,7 @@ package com.yugabyte.servicebroker.model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yugabyte.servicebroker.exception.YugaByteServiceException;
 
 import javax.persistence.AttributeConverter;
 import java.io.IOException;
@@ -15,8 +16,7 @@ public class ConverterMapToJson implements AttributeConverter<Object, String> {
     try {
       return objectMapper.writeValueAsString(meta);
     } catch (JsonProcessingException ex) {
-      return null;
-      // or throw an error
+      throw new YugaByteServiceException("Unable to parse data");
     }
   }
 
@@ -25,8 +25,7 @@ public class ConverterMapToJson implements AttributeConverter<Object, String> {
     try {
       return objectMapper.readValue(dbData, Object.class);
     } catch (IOException ex) {
-      // logger.error("Unexpected IOEx decoding json from database: " + dbData);
-      return null;
+      throw new YugaByteServiceException(ex.getMessage());
     }
   }
 
