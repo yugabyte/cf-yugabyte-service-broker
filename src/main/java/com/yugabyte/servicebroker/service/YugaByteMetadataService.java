@@ -72,7 +72,7 @@ public class YugaByteMetadataService {
 
   // YugaByte Admin Universe metadata APIs
   public JsonNode getClusterPayload(CreateServiceInstanceRequest request) {
-    String serviceInstanceId = request.getServiceInstanceId();
+    String serviceDefinitionId = request.getServiceDefinitionId();
     Plan requestedPlan = getPlan(request.getPlanId());
 
     if (requestedPlan == null) {
@@ -98,7 +98,7 @@ public class YugaByteMetadataService {
         .collect(Collectors.toList());
     userIntent.set("regionList", mapper.valueToTree(regionUUIDs));
     userIntent.put("replicationFactor", DEFAULT_REPLICATION_FACTOR);
-    userIntent.put("universeName", serviceInstanceId);
+    userIntent.put("universeName", serviceDefinitionId);
     userIntent.put("ybSoftwareVersion", DEFAULT_YB_RELEASE);
 
     ObjectNode deviceInfo = mapper.createObjectNode();
