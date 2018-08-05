@@ -72,7 +72,7 @@ public class YugaByteMetadataService {
 
   // YugaByte Admin Universe metadata APIs
   public JsonNode getClusterPayload(CreateServiceInstanceRequest request) {
-    String serviceDefinitionId = request.getServiceDefinitionId();
+    String instanceId = request.getServiceInstanceId();
     Plan requestedPlan = getPlan(request.getPlanId());
 
     if (requestedPlan == null) {
@@ -80,6 +80,12 @@ public class YugaByteMetadataService {
     }
     Map<String, Object> parameters = request.getParameters();
 
+    // We will override the universe name if a parameter is passed.
+    String universeName = "universe-" + instanceId.substring(0, 5);
+    if (parameters != null && parameters.containsKey("universe_name")) {
+      universeName = parameters.get("universe_name").toString();
+    }
+    
     ObjectMapper mapper = new ObjectMapper();
     ArrayNode clusters = mapper.createArrayNode();
 
@@ -98,7 +104,7 @@ public class YugaByteMetadataService {
         .collect(Collectors.toList());
     userIntent.set("regionList", mapper.valueToTree(regionUUIDs));
     userIntent.put("replicationFactor", DEFAULT_REPLICATION_FACTOR);
-    userIntent.put("universeName", serviceDefinitionId);
+    userIntent.put("universeName", universeName);
     userIntent.put("ybSoftwareVersion", DEFAULT_YB_RELEASE);
 
     ObjectNode deviceInfo = mapper.createObjectNode();
@@ -112,7 +118,8 @@ public class YugaByteMetadataService {
     clusters.add(primaryCluster);
     ObjectNode payload = mapper.createObjectNode();
     payload.set("clusters", clusters);
-    payload.put("currentClusterType", "primary");
+    payload.put("currentClusterType", "PRIMARY");
+    payload.put("clusterOperation", "CREATE");
     payload.put("userAZSelected",  false);
 
     return payload;
