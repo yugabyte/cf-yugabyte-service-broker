@@ -85,7 +85,7 @@ public class YugaByteMetadataService {
     if (parameters != null && parameters.containsKey("universe_name")) {
       universeName = parameters.get("universe_name").toString();
     }
-    
+
     ObjectMapper mapper = new ObjectMapper();
     ArrayNode clusters = mapper.createArrayNode();
 
@@ -150,7 +150,7 @@ public class YugaByteMetadataService {
   public Map<String, Object> getServiceMetadata() {
     Map<String, Object> ybMetadata = new HashMap<>();
     ybMetadata.put("displayName", "YugaByte DB");
-    ybMetadata.put("imageUrl", "https://www.yugabyte.com/images/yblogo_whitebg.3fea4ef9.png");
+    ybMetadata.put("imageUrl", "https://assets.yugabyte.com/yugabyte_full_logo.png");
     ybMetadata.put("longDescription", "YugaByte DB Service");
     ybMetadata.put("providerDisplayName", "YugaByte DB");
     ybMetadata.put("documentationUrl", "https://github.com/YugaByte/yugabyte-db");
