@@ -1,6 +1,11 @@
 .gradle
 /build/
 !gradle/wrapper/gradle-wrapper.jar
+/product/
+/release/
+/resources/
+
+tile-history.yml
 
 ### STS ###
 .apt_generated
