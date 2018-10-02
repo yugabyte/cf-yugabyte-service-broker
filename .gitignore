@@ -3,7 +3,6 @@
 !gradle/wrapper/gradle-wrapper.jar
 /product/
 /release/
-/resources/
 
 tile-history.yml
 
