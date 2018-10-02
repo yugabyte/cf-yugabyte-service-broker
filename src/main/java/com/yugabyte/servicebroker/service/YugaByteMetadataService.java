@@ -57,8 +57,6 @@ public class YugaByteMetadataService {
     String url = String.format("%s/providers", adminService.getApiBaseUrl());
     JsonNode response = adminService.doGet(url);
     provider = StreamSupport.stream(response.spliterator(), false )
-        .filter( provider -> provider.get("code").asText().equals("kubernetes"))
-        .filter( provider -> provider.get("config").get("KUBECONFIG_PROVIDER").asText().equals("pks"))
         .findFirst().orElse(null);
     if (provider != null) {
       String providerBaseUrl = String.format("%s/providers/%s",
@@ -153,8 +151,8 @@ public class YugaByteMetadataService {
     ybMetadata.put("imageUrl", "https://assets.yugabyte.com/yugabyte_full_logo.png");
     ybMetadata.put("longDescription", "YugaByte DB Service");
     ybMetadata.put("providerDisplayName", "YugaByte DB");
-    ybMetadata.put("documentationUrl", "https://github.com/YugaByte/yugabyte-db");
-    ybMetadata.put("supportUrl", "https://github.com/YugaByte/yugabyte-db");
+    ybMetadata.put("documentationUrl", "https://docs.yugabyte.com");
+    ybMetadata.put("supportUrl", "mailto:support@yugabyte.com");
     return ybMetadata;
   }
 }
