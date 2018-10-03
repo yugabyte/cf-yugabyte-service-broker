@@ -1,0 +1,43 @@
+---
+name: yugabyte_service_broker
+icon_file: resources/yugabyte_full_logo.png
+label:  YugaByte DB
+description: YugaByte DB Enterprise
+
+packages:
+- name: yugabyte_service_broker
+  type: app-broker
+  label: YugaByte DB Enterprise
+  manifest:
+    path: build/libs/servicebroker-1.1.0.jar
+    buildpack: java_buildpack_offline
+    memory: 1G
+
+properties:
+- name: yugabyte_service_name
+  type: string
+  label: YugaByte Service Name
+  value: yugabyte-sb
+- name: yugabyte_service_description
+  type: string
+  label: YugaByte Service Description
+  value: Service Broker for Managing YugaByte DB
+
+forms:
+- name: yugabyte-config-form
+  label: YugaByte Configuration
+  description: Custom Properties for YugaByte
+  properties:
+  - name: yugabyte_admin_host
+    type: string
+    label: YugaByte Admin Host IP
+  - name: yugabyte_admin_port
+    type: integer
+    label: YugaByte Admin Host Port
+    value: 80
+  - name: yugabyte_admin_user
+    type: string
+    label: YugaByte Admin User
+  - name: yugabyte_admin_password
+    type: secret
+    label: YugaByte Admin Password
