@@ -1,15 +1,15 @@
 ---
 name: yugabyte_service_broker
 icon_file: resources/yugabyte_full_logo.png
-label:  YugaByte DB Service Broker
-description: Service broker to manage YugaByte DB Enterprise
+label:  YugaByte DB
+description: YugaByte DB Enterprise
 
 packages:
 - name: yugabyte_service_broker
   type: app-broker
   label: YugaByte DB Enterprise
   manifest:
-    path: build/libs/servicebroker-0.0.1.jar
+    path: build/libs/servicebroker-1.1.0.jar
     buildpack: java_buildpack_offline
     memory: 1G
 
