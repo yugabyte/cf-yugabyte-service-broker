@@ -56,6 +56,7 @@ public class YugaByteInstanceService implements ServiceInstanceService {
 
     if (instanceRepository.existsById(instanceId)) {
       responseBuilder.instanceExisted(true);
+      return responseBuilder.build();
     } else {
       JsonNode params = metadataService.getClusterPayload(request);
       JsonNode response = adminService.createUniverse(params);
@@ -65,10 +66,11 @@ public class YugaByteInstanceService implements ServiceInstanceService {
 
       ServiceInstance serviceInstance = new ServiceInstance(request, response.get("universeUUID").asText());
       instanceRepository.save(serviceInstance);
-      responseBuilder.dashboardUrl(response.get("universeUUID").asText());
+      return CreateServiceInstanceResponse.builder()
+          .operation("Universe is being created: " + response.get("universeUUID").asText())
+          .async(true)
+          .build();
     }
-
-    return responseBuilder.build();
   }
 
   @Override
@@ -90,33 +92,26 @@ public class YugaByteInstanceService implements ServiceInstanceService {
   @Override
   public DeleteServiceInstanceResponse deleteServiceInstance(DeleteServiceInstanceRequest request) {
     String instanceId = request.getServiceInstanceId();
-    DeleteServiceInstanceResponse.DeleteServiceInstanceResponseBuilder responseBuilder = DeleteServiceInstanceResponse.builder();
     Optional<ServiceInstance> serviceInstance = instanceRepository.findById(instanceId);
 
     if (serviceInstance.isPresent()) {
       ServiceInstance si = serviceInstance.get();
       String universeUUID = si.getUniverseUUID();
-      if (si.getUniverseState().equals(ServiceInstance.UniverseState.LIVE) ||
-          si.getUniverseState().equals(ServiceInstance.UniverseState.ERROR)) {
-        JsonNode response = adminService.deleteUniverse(universeUUID);
-        if (response.has("error")) {
-          si.updateState(ServiceInstance.UniverseState.ERROR);
-          instanceRepository.save(si);
-          return DeleteServiceInstanceResponse.builder()
-              .operation("Delete Universe: " + si.getServiceInstanceId() + " Failed!")
-              .async(true)
-              .build();
-        } else {
-          si.updateState(ServiceInstance.UniverseState.DELETING);
-          instanceRepository.save(si);
-          return DeleteServiceInstanceResponse.builder()
-              .operation("Deleting Universe: " + si.getServiceInstanceId())
-              .async(true)
-              .build();
-        }
+      JsonNode response = adminService.deleteUniverse(universeUUID);
+      if (response.has("error")) {
+        si.updateState(ServiceInstance.UniverseState.ERROR);
+        instanceRepository.save(si);
+        return DeleteServiceInstanceResponse.builder()
+            .operation("Delete Universe: " + si.getServiceInstanceId() + " Failed!")
+            .async(true)
+            .build();
       } else {
-        return responseBuilder.operation("Cannot delete Universe in " +
-            si.getUniverseState() + " state!").build();
+        si.updateState(ServiceInstance.UniverseState.DELETING);
+        instanceRepository.save(si);
+        return DeleteServiceInstanceResponse.builder()
+            .operation("Deleting Universe: " + si.getServiceInstanceId())
+            .async(true)
+            .build();
       }
     } else {
       throw new ServiceInstanceDoesNotExistException(instanceId);
@@ -154,15 +149,22 @@ public class YugaByteInstanceService implements ServiceInstanceService {
       ServiceInstance si = serviceInstance.get();
       String universeUUID = si.getUniverseUUID();
       JsonNode response = adminService.getUniverse(universeUUID);
-      si.updateState(response.get("universeDetails"));
-      instanceRepository.save(si);
       OperationState state;
-      if (si.getUniverseState().equals(ServiceInstance.UniverseState.LIVE)) {
+      // If the error is invalid universe, likely the universe is deleted
+      if (response.has("error") &&
+          response.get("error").asText().contains("Invalid Universe UUID") &&
+          si.getUniverseState().equals(ServiceInstance.UniverseState.DELETING)) {
         state = OperationState.SUCCEEDED;
-      } else if (si.getUniverseState().equals(ServiceInstance.UniverseState.ERROR)) {
-        state = OperationState.FAILED;
       } else {
-        state = OperationState.IN_PROGRESS;
+        si.updateState(response.get("universeDetails"));
+        instanceRepository.save(si);
+        if (si.getUniverseState().equals(ServiceInstance.UniverseState.LIVE)) {
+          state = OperationState.SUCCEEDED;
+        } else if (si.getUniverseState().equals(ServiceInstance.UniverseState.ERROR)) {
+          state = OperationState.FAILED;
+        } else {
+          state = OperationState.IN_PROGRESS;
+        }
       }
       return GetLastServiceOperationResponse.builder()
           .operationState(state)
