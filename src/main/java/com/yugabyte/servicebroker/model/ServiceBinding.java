@@ -15,6 +15,8 @@ public class ServiceBinding {
   @Column(length = 50)
   private final String bindingId;
 
+  @Column()
+  private final String serviceInstanceId;
 
   @Column()
   @Convert(converter = ConverterMapToJson.class)
@@ -22,12 +24,14 @@ public class ServiceBinding {
 
   @SuppressWarnings("unused")
   private ServiceBinding() {
+    this.serviceInstanceId = null;
     this.bindingId = null;
     this.credentials = null;
   }
 
-  public ServiceBinding(String bindingId, Map<String, Object> credentials) {
+  public ServiceBinding(String bindingId, String serviceInstanceId, Map<String, Object> credentials) {
     this.bindingId = bindingId;
+    this.serviceInstanceId = serviceInstanceId;
     this.credentials = credentials;
   }
 
@@ -37,5 +41,9 @@ public class ServiceBinding {
 
   public String getBindingId() {
     return bindingId;
+  }
+
+  public String getServiceInstanceId() {
+    return serviceInstanceId;
   }
 }
