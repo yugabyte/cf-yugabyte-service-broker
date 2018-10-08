@@ -13,7 +13,7 @@ packages:
     buildpack: java_buildpack_offline
     memory: 1G
   auto_services:
-  - name: p-mysql
+  - name: pivotal-mysql
     plan: 100MB
   enable_global_access_to_plans: true
 
