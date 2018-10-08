@@ -9,7 +9,7 @@ packages:
   type: app-broker
   label: YugaByte DB Enterprise
   manifest:
-    path: build/libs/servicebroker-1.1.0.jar
+    path: build/libs/servicebroker-1.1.1.jar
     buildpack: java_buildpack_offline
     memory: 1G
   auto_services:

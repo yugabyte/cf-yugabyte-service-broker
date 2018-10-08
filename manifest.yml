@@ -3,4 +3,4 @@
 applications:
 - name: yugabyte-sb
   random-route: false
-  path: build/libs/servicebroker-1.1.0.jar
+  path: build/libs/servicebroker-1.1.1.jar
