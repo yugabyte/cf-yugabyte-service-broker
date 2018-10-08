@@ -16,17 +16,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.yugabyte.servicebroker.config.CatalogConfig;
+import com.yugabyte.servicebroker.config.PlanMetadata;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
-import com.yugabyte.servicebroker.service.common.PlanMetadata;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.servicebroker.model.catalog.Plan;
 import org.springframework.cloud.servicebroker.model.instance.CreateServiceInstanceRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -34,12 +33,16 @@ import java.util.stream.StreamSupport;
 public class YugaByteMetadataService {
 
   private YugaByteAdminService adminService;
+  private CatalogConfig catalogConfig;
 
   // TODO: Do we want to get these from parameters?
   private static int DEFAULT_NUM_NODES = 3;
   private static int DEFAULT_REPLICATION_FACTOR = 3;
+  private static int DEFAULT_NUM_VOLUMES = 1;
+  private static int DEFAULT_VOLUME_SIZE_IN_GB = 100;
   // TODO: change to this EE version once that is available.
   private static String DEFAULT_YB_RELEASE = "latest";
+
 
   // YugaByte Admin Console metadata
   private JsonNode provider;
@@ -47,13 +50,15 @@ public class YugaByteMetadataService {
   private JsonNode instanceTypes;
 
   @Autowired
-  public YugaByteMetadataService(YugaByteAdminService adminService) {
+  public YugaByteMetadataService(YugaByteAdminService adminService,
+                                 CatalogConfig catalogConfig) {
     this.adminService = adminService;
-    fetchMetadata();
+    this.catalogConfig = catalogConfig;
+    fetchMetadata(null);
   }
 
   // YugaByte Admin org.yb.servicebroker.common metadata APIs
-  private void fetchMetadata() {
+  private void fetchMetadata(String cloud) {
     String url = String.format("%s/providers", adminService.getApiBaseUrl());
     JsonNode response = adminService.doGet(url);
     provider = StreamSupport.stream(response.spliterator(), false )
@@ -71,18 +76,24 @@ public class YugaByteMetadataService {
   // YugaByte Admin Universe metadata APIs
   public JsonNode getClusterPayload(CreateServiceInstanceRequest request) {
     String instanceId = request.getServiceInstanceId();
-    Plan requestedPlan = getPlan(request.getPlanId());
+    PlanMetadata requestedPlan = catalogConfig.getPlan(request.getPlanId());
 
     if (requestedPlan == null) {
-      throw new YugaByteServiceException("Invalid Plan Id: " + request.getPlanId() );
+      throw new YugaByteServiceException("Invalid CatalogConfig Id: " + request.getPlanId() );
     }
     Map<String, Object> parameters = request.getParameters();
 
     // We will override the universe name if a parameter is passed.
     String universeName = "universe-" + instanceId.substring(0, 5);
-    if (parameters != null && parameters.containsKey("universe_name")) {
-      universeName = parameters.get("universe_name").toString();
+    String numVolumes = null, volumeSizeGB = null;
+    if (parameters != null && !parameters.isEmpty()) {
+      universeName = parameters.getOrDefault("universe_name", universeName).toString();
+      numVolumes =
+          parameters.getOrDefault("num_volumes", DEFAULT_NUM_VOLUMES).toString();
+      volumeSizeGB =
+          parameters.getOrDefault("volume_size", DEFAULT_VOLUME_SIZE_IN_GB).toString();
     }
+
 
     ObjectMapper mapper = new ObjectMapper();
     ArrayNode clusters = mapper.createArrayNode();
@@ -90,9 +101,11 @@ public class YugaByteMetadataService {
     // Create PRIMARY
     ObjectNode primaryCluster = mapper.createObjectNode();
     primaryCluster.put("clusterType", "PRIMARY");
+    String providerCode = provider.get("code").asText();
+    System.out.println(providerCode);
 
     ObjectNode userIntent = mapper.createObjectNode();
-    userIntent.put("instanceType", requestedPlan.getId());
+    userIntent.put("instanceType", requestedPlan.getInstanceType(providerCode));
     userIntent.put("numNodes", DEFAULT_NUM_NODES);
     userIntent.put("provider", provider.get("uuid").asText());
     userIntent.put("providerType", provider.get("code").asText());
@@ -106,10 +119,8 @@ public class YugaByteMetadataService {
     userIntent.put("ybSoftwareVersion", DEFAULT_YB_RELEASE);
 
     ObjectNode deviceInfo = mapper.createObjectNode();
-    deviceInfo.put("volumeSize",
-        requestedPlan.getMetadata().get("volumeSizeGB").toString());
-    deviceInfo.put("numVolumes",
-        requestedPlan.getMetadata().get("numVolumes").toString());
+    deviceInfo.put("volumeSize", volumeSizeGB);
+    deviceInfo.put("numVolumes", numVolumes);
     userIntent.set("deviceInfo", deviceInfo);
 
     primaryCluster.set("userIntent", userIntent);
@@ -120,29 +131,8 @@ public class YugaByteMetadataService {
     payload.put("clusterOperation", "CREATE");
     payload.put("userAZSelected",  false);
 
+    System.out.println(payload);
     return payload;
-  }
-
-  // Service Broker Catalog metadata APIs
-  public List<Plan> getPlans() {
-    return StreamSupport.stream(instanceTypes.spliterator(), false)
-      .map(instanceType -> {
-        PlanMetadata metadata = PlanMetadata.fromInstanceType(instanceType);
-
-        return Plan.builder()
-            .id(instanceType.get("instanceTypeCode").asText())
-            .name(instanceType.get("instanceTypeCode").asText())
-            .description(metadata.asText())
-            .metadata(metadata.asMap())
-            .free(true)
-            .build();
-      }).collect(Collectors.toList());
-  }
-
-  private Plan getPlan(String planId) {
-    Optional<Plan> requestedPlan = getPlans().stream().filter( (plan ) ->
-        plan.getId().equals(planId)).findFirst();
-    return requestedPlan.orElse(null);
   }
 
   public Map<String, Object> getServiceMetadata() {

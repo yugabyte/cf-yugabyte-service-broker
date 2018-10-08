@@ -35,7 +35,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -160,6 +162,13 @@ public class YugaByteAdminService {
   public JsonNode deleteUniverse(String universeUUID) {
     String url = String.format("%s/universes/%s", getApiBaseUrl(), universeUUID);
     return doDelete(url);
+  }
+
+  public List<String> getReleases() {
+    String url = String.format("%s/releases", getApiBaseUrl());
+    JsonNode response = doGet(url);
+    System.out.println(response);
+    return new ArrayList<>();
   }
 
   public JsonNode getUniverseByServiceInstance(String instanceId) {
