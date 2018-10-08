@@ -12,6 +12,10 @@ packages:
     path: build/libs/servicebroker-1.1.0.jar
     buildpack: java_buildpack_offline
     memory: 1G
+  auto_services:
+  - name: p-mysql
+    plan: 100MB
+  enable_global_access_to_plans: true
 
 properties:
 - name: yugabyte_service_name
