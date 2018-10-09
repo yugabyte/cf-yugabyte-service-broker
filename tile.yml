@@ -13,8 +13,9 @@ packages:
     buildpack: java_buildpack_offline
     memory: 1G
   auto_services:
-  - name: pivotal-mysql
-    plan: 100MB
+  - name: p.mysql
+    plan: db-small
+
   enable_global_access_to_plans: true
 
 properties:
@@ -45,3 +46,7 @@ forms:
   - name: yugabyte_admin_password
     type: secret
     label: YugaByte Admin Password
+
+requires_product_versions:
+- name: pivotal-mysql
+  version: '~> 2.0'
