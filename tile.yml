@@ -9,9 +9,14 @@ packages:
   type: app-broker
   label: YugaByte DB Enterprise
   manifest:
-    path: build/libs/servicebroker-1.1.0.jar
+    path: build/libs/servicebroker-1.1.1.jar
     buildpack: java_buildpack_offline
     memory: 1G
+  auto_services:
+  - name: p.mysql
+    plan: db-small
+
+  enable_global_access_to_plans: true
 
 properties:
 - name: yugabyte_service_name
@@ -41,3 +46,7 @@ forms:
   - name: yugabyte_admin_password
     type: secret
     label: YugaByte Admin Password
+
+requires_product_versions:
+- name: pivotal-mysql
+  version: '~> 2.0'
