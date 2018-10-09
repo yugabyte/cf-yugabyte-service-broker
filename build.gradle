@@ -36,8 +36,7 @@ dependencies {
 	compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.3.3'
 	compile group: 'com.google.code.gson', name: 'gson', version: '2.7'
 	compile group: 'org.springframework.boot', name: 'spring-boot-starter-data-jpa'
-
-	runtime('org.hsqldb:hsqldb')
+    compile 'mysql:mysql-connector-java'
 
 	testCompile("org.springframework.boot:spring-boot-starter-test")
 }
