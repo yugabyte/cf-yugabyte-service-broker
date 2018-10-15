@@ -1,6 +1,6 @@
 
 ---
 applications:
-- name: yugabyte-sb
+- name: yugabyte-db
   random-route: false
   path: build/libs/servicebroker-1.1.1.jar

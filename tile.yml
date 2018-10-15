@@ -22,7 +22,7 @@ properties:
 - name: yugabyte_service_name
   type: string
   label: YugaByte Service Name
-  value: yugabyte-sb
+  value: yugabyte-db
 - name: yugabyte_service_description
   type: string
   label: YugaByte Service Description
