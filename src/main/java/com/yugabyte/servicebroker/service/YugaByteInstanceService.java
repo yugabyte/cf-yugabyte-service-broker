@@ -59,19 +59,17 @@ public class YugaByteInstanceService implements ServiceInstanceService {
       return responseBuilder.build();
     } else {
       JsonNode params = metadataService.getClusterPayload(request);
-      responseBuilder.instanceExisted(true);
-      return responseBuilder.build();
-//      JsonNode response = adminService.createUniverse(params);
-//      if (response.has("error")) {
-//        throw new YugaByteServiceException(response.get("error").asText());
-//      }
-//
-//      ServiceInstance serviceInstance = new ServiceInstance(request, response.get("universeUUID").asText());
-//      instanceRepository.save(serviceInstance);
-//      return CreateServiceInstanceResponse.builder()
-//          .operation("Universe is being created: " + response.get("universeUUID").asText())
-//          .async(true)
-//          .build();
+      JsonNode response = adminService.createUniverse(params);
+      if (response.has("error")) {
+        throw new YugaByteServiceException(response.get("error").asText());
+      }
+
+      ServiceInstance serviceInstance = new ServiceInstance(request, response.get("universeUUID").asText());
+      instanceRepository.save(serviceInstance);
+      return CreateServiceInstanceResponse.builder()
+          .operation("Universe is being created: " + response.get("universeUUID").asText())
+          .async(true)
+          .build();
     }
   }
 

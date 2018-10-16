@@ -32,9 +32,6 @@ public class YugaByteCatalogService implements CatalogService {
   @Autowired
   CatalogConfig catalogConfig;
 
-  @Autowired
-  YugaByteAdminService adminService;
-
   @Override
   public Catalog getCatalog() {
     return Catalog.builder()
@@ -44,9 +41,6 @@ public class YugaByteCatalogService implements CatalogService {
 
   @Override
   public ServiceDefinition getServiceDefinition(String serviceId) {
-    System.out.println(catalogConfig.getPlans());
-    adminService.getReleases();
-
     return ServiceDefinition.builder()
         .id(serviceId)
         .name(serviceConfig.serviceName)
