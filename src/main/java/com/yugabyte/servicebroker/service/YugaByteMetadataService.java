@@ -183,7 +183,9 @@ public class YugaByteMetadataService {
     userIntent.put("replicationFactor", replication);
     userIntent.put("universeName", universeName);
     userIntent.put("ybSoftwareVersion", ybSoftwareVersion);
-    userIntent.put("accessKeyCode", accessKeys.get(0));
+    if (!accessKeys.isEmpty()) {
+      userIntent.put("accessKeyCode", accessKeys.get(0));
+    }
 
     ObjectNode deviceInfo = mapper.createObjectNode();
     deviceInfo.put("volumeSize", volumeSizeGB);
