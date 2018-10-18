@@ -1,0 +1,70 @@
+# YugaWare configuration
+yugabyte:
+    admin:
+        host: localhost
+        port: 9000
+        user: admin
+        password: admin
+    service:
+        name: yugabyte-db
+        description: Service Broker for Managing YugaByte DB
+    catalog:
+        plans:
+          -
+            code: xsmall
+            name: X-Small
+            cores: 2
+            memory: 7.5
+            cloud_instance_type:
+                aws: c4.large
+                gcp: n1-standard-2
+                kubernetes: xsmall
+          -
+            code: small
+            name: Small
+            cores: 4
+            memory: 7.5
+            cloud_instance_type:
+                aws: c4.xlarge
+                gcp: n1-standard-4
+                kubernetes: small
+          -
+            code: medium
+            name: Medium
+            cores: 8
+            memory: 15
+            cloud_instance_type:
+                aws: c4.2xlarge
+                gcp: n1-standard-8
+                kubernetes: medium
+          -
+            code: large
+            name: Large
+            cores: 16
+            memory: 15
+            cloud_instance_type:
+                aws: c4.4xlarge
+                gcp: n1-standard-16
+                kubernetes: large
+          -
+            code: xlarge
+            name: X-Large
+            cores: 32
+            memory: 30
+            cloud_instance_type:
+                aws: c4.8xlarge
+                gcp: n1-standard-32
+                kubernetes: xlarge
+spring:
+    datasource:
+        url: jdbc:mysql://localhost:3306/yugabyte_sb
+        username: yugabyte
+        password: supersecret
+    jpa:
+        show-sql: true
+        hibernate:
+            ddl-auto: update
+        properties:
+            hibernate:
+                dialect: org.hibernate.dialect.MySQL5Dialect
+

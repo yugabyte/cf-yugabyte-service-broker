@@ -12,6 +12,7 @@
  */
 package com.yugabyte.servicebroker.service;
 
+import com.yugabyte.servicebroker.config.CatalogConfig;
 import com.yugabyte.servicebroker.config.YugaByteServiceConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.model.catalog.Catalog;
@@ -27,6 +28,9 @@ public class YugaByteCatalogService implements CatalogService {
 
   @Autowired
   YugaByteServiceConfig serviceConfig;
+
+  @Autowired
+  CatalogConfig catalogConfig;
 
   @Override
   public Catalog getCatalog() {
@@ -44,7 +48,7 @@ public class YugaByteCatalogService implements CatalogService {
         .bindable(true)
         .tags("yugabyte", "nosql", "cloud-native", "distributed")
         .metadata(metadataService.getServiceMetadata())
-        .plans(metadataService.getPlans())
+        .plans(catalogConfig.getCatalogPlans())
         .build();
   }
 }
