@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @EnableConfigurationProperties
@@ -25,6 +26,7 @@ public class PlanMetadata {
   private String name;
   public Integer cores;
   public Integer memory;
+  public List<String> bullets;
   public Map<String, String> cloudInstanceType;
 
   public String getCode() {
@@ -59,6 +61,14 @@ public class PlanMetadata {
     this.memory = memory;
   }
 
+  public List<String> getBullets() {
+    return bullets;
+  }
+
+  public void setBullets(List<String> bullets) {
+    this.bullets = bullets;
+  }
+
   public Map<String, String> getCloudInstanceType() {
     return cloudInstanceType;
   }
@@ -69,14 +79,14 @@ public class PlanMetadata {
 
   @Override
   public String toString() {
-    return "Cores: " + cores + ", Memory (GB):" + memory;
+    return "Cores: " + cores + ", Memory (GB): " + memory;
   }
 
   public Map<String, Object> asMap() {
     HashMap<String, Object> metadataMap = new HashMap<>();
-    metadataMap.put("cores", getCores());
-    metadataMap.put("memory", getMemory());
-    metadataMap.put("cloud_instance_type", getCloudInstanceType());
+    metadataMap.put("displayName", getName());
+    metadataMap.put("bullets", getBullets());
+    // TODO: add costs
     return metadataMap;
   }
 
