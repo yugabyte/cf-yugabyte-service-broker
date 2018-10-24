@@ -14,10 +14,10 @@ yugabyte:
             code: xsmall
             name: x-small
             cores: 2
-            memory: 7.5
+            memory: 4
             bullets:
-              - "2 CPU and 7.5GB Memory for the master nodes"
-              - "2 CPU and 7.5GB Memory for the data nodes"
+              - "2 CPU and 2GB Memory for the master nodes"
+              - "2 CPU and 4GB Memory for the data nodes"
               - "Ideal for dev/staging environments"
             cloud_instance_type:
                 aws: c4.large
@@ -29,7 +29,7 @@ yugabyte:
             cores: 4
             memory: 7.5
             bullets:
-              - "2 CPU and 7.5GB Memory for the master nodes"
+              - "2 CPU and 4GB Memory for the master nodes"
               - "4 CPU and 7.5GB Memory for the data nodes"
               - "Ideal for dev/staging environments"
             cloud_instance_type:
@@ -42,7 +42,7 @@ yugabyte:
             cores: 8
             memory: 15
             bullets:
-              - "2 CPU and 7.5GB Memory for the master nodes"
+              - "2 CPU and 4GB Memory for the master nodes"
               - "8 CPU and 15GB Memory for the data nodes"
               - "Ideal for staging/production environments"
             cloud_instance_type:
@@ -55,7 +55,7 @@ yugabyte:
             cores: 16
             memory: 15
             bullets:
-              - "2 CPU and 7.5GB Memory for the master nodes"
+              - "2 CPU and 4GB Memory for the master nodes"
               - "16 CPU and 15GB Memory for the data nodes"
               - "Ideal for production environments"
             cloud_instance_type:
@@ -68,7 +68,7 @@ yugabyte:
             cores: 32
             memory: 30
             bullets:
-              - "2 CPU and 7.5GB Memory for the master nodes"
+              - "2 CPU and 4GB Memory for the master nodes"
               - "32 CPU and 30GB Memory for the data nodes"
               - "Ideal for production environments"
             cloud_instance_type:
