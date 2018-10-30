@@ -15,10 +15,15 @@ package com.yugabyte.servicebroker.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.net.HostAndPort;
 import com.yugabyte.servicebroker.config.YugaByteServiceConfig;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
+import com.yugabyte.servicebroker.model.ServiceBinding;
 import com.yugabyte.servicebroker.model.ServiceInstance;
 import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
+import com.yugabyte.servicebroker.utils.CommonUtils;
+import com.yugabyte.servicebroker.utils.YEDISClient;
+import com.yugabyte.servicebroker.utils.YQLClient;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -146,11 +151,14 @@ public class YugaByteAdminService {
     }
   }
 
-  public JsonNode createUniverse(JsonNode params) {
+  public JsonNode configureUniverse(JsonNode params) {
     String url = String.format("%s/universe_configure", getApiBaseUrl());
-    JsonNode response = doPost(url, params);
-    url = String.format("%s/universes", getApiBaseUrl());
-    return doPost(url, response);
+    return doPost(url, params);
+  }
+
+  public JsonNode createUniverse(JsonNode params) {
+    String url = String.format("%s/universes", getApiBaseUrl());
+    return doPost(url, params);
   }
 
   public JsonNode getUniverse(String universeUUID) {
@@ -178,15 +186,32 @@ public class YugaByteAdminService {
     return si.getUniverseUUID();
   }
 
-  public Map<String, Object> getUniverseServiceEndpoints(String instanceId) {
+  public Map<String, Object> getUniverseServiceEndpoints(String instanceId,
+                                                         List<ServiceBinding> existingBindings) {
     String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
     String url = String.format("%s/universes/%s/yqlservers", getApiBaseUrl(), universeUUID);
     String yqlServers = doGetRaw(url);
     url = String.format("%s/universes/%s/redisservers", getApiBaseUrl(), universeUUID);
     String yedisServers = doGetRaw(url);
     Map<String, Object> endpoints = new HashMap<>();
-    endpoints.put("yql", yqlServers.replaceAll("^\"|\"$", ""));
-    endpoints.put("yedis", yedisServers.replaceAll("^\"|\"$", ""));
+    List<HostAndPort> yqlHostAndPorts =
+        CommonUtils.convertToHostPorts(yqlServers.replaceAll("^\"|\"$", ""));
+    List<HostAndPort> yedisHostAndPorts =
+        CommonUtils.convertToHostPorts(yedisServers.replaceAll("^\"|\"$", ""));
+    YQLClient yqlClient = new YQLClient(yqlHostAndPorts);
+    YEDISClient yedisClient = new YEDISClient(yedisHostAndPorts);
+    try {
+      endpoints.put("yql", yqlClient.getCredentials());
+    } catch (Exception e) {}
+
+    try {
+      yedisClient.setExistingBindings(existingBindings);
+      endpoints.put("yedis", yedisClient.getCredentials());
+    } catch (Exception e) {}
+
+    if (endpoints.isEmpty()) {
+      throw new YugaByteServiceException("Unable to create service bindings.");
+    }
     return endpoints;
   }
 }

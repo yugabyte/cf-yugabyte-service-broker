@@ -41,7 +41,6 @@ public class YugaByteBindingService implements ServiceInstanceBindingService {
     this.bindingRepository = bindingRepository;
   }
 
-
   @Override
   public CreateServiceInstanceBindingResponse createServiceInstanceBinding(CreateServiceInstanceBindingRequest request) {
     String bindingId = request.getBindingId();
@@ -54,7 +53,10 @@ public class YugaByteBindingService implements ServiceInstanceBindingService {
           .bindingExisted(true)
           .credentials(binding.get().getCredentials());
     } else {
-      Map<String, Object> serviceEndpoints = adminService.getUniverseServiceEndpoints(request.getServiceInstanceId());
+      Map<String, Object> serviceEndpoints = adminService.getUniverseServiceEndpoints(
+          request.getServiceInstanceId(),
+          bindingRepository.findAll()
+      );
       ServiceBinding serviceBinding =
           new ServiceBinding(request.getBindingId(), request.getServiceInstanceId(), serviceEndpoints);
       bindingRepository.save(serviceBinding);

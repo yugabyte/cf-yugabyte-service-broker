@@ -59,6 +59,8 @@ public class YugaByteInstanceService implements ServiceInstanceService {
       return responseBuilder.build();
     } else {
       JsonNode params = metadataService.getClusterPayload(request);
+      params = adminService.configureUniverse(params);
+      params = metadataService.updateGflags(params, request);
       JsonNode response = adminService.createUniverse(params);
       if (response.has("error")) {
         throw new YugaByteServiceException(response.get("error").asText());

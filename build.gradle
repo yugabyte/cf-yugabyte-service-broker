@@ -37,6 +37,8 @@ dependencies {
 	compile group: 'com.google.code.gson', name: 'gson', version: '2.7'
 	compile group: 'org.springframework.boot', name: 'spring-boot-starter-data-jpa'
     compile 'mysql:mysql-connector-java'
+    compile group: 'com.yugabyte', name: 'cassandra-driver-core', version: '3.2.0-yb-18'
+	compile group: 'com.yugabyte', name: 'jedis', version: '2.9.0-yb-11'
 
 	testCompile("org.springframework.boot:spring-boot-starter-test")
 }
