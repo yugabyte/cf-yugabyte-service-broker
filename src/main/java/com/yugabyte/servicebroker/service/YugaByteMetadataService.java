@@ -19,7 +19,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yugabyte.servicebroker.config.CatalogConfig;
 import com.yugabyte.servicebroker.config.PlanMetadata;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
+import com.yugabyte.servicebroker.utils.CommonUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.servicebroker.model.instance.AsyncParameterizedServiceInstanceRequest;
 import org.springframework.cloud.servicebroker.model.instance.CreateServiceInstanceRequest;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -201,6 +204,44 @@ public class YugaByteMetadataService {
     payload.put("userAZSelected",  false);
 
     return payload;
+  }
+
+  public JsonNode updateGflags(JsonNode currentPayload, AsyncParameterizedServiceInstanceRequest request) {
+    Map<String, Object> parameters = request.getParameters();
+    if (parameters == null) {
+      return currentPayload;
+    }
+    Optional<JsonNode> primaryCluster =
+        CommonUtils.getCluster(currentPayload.get("clusters"), "PRIMARY");
+
+    if (!primaryCluster.isPresent()) {
+      // This is actually bad that we don't even have a primary cluster
+      throw new YugaByteServiceException("Primary Cluster data not found.");
+    }
+
+
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String, Object> tserverFlags = (Map<String, Object>)
+        parameters.getOrDefault("tserver_flags", new HashMap<>());
+    Map<String, Object> masterFlags = (Map<String, Object>)
+        parameters.getOrDefault("master_flags", new HashMap<>());
+
+    ObjectNode primaryUserIntent = (ObjectNode) primaryCluster.get().get("userIntent");
+    ArrayNode tserverGFlags = CommonUtils.convertGflagMapToJson(tserverFlags);
+    ArrayNode masterGFlags = CommonUtils.convertGflagMapToJson(masterFlags);
+
+    // If use_cassandra_authentication is not set explicitly, we default to true.
+    if (!tserverFlags.containsKey("use_cassandra_authentication")) {
+      ObjectNode authGFlag = mapper.createObjectNode();
+      authGFlag.put("name", "use_cassandra_authentication");
+      authGFlag.put("value", "true");
+      tserverGFlags.add(authGFlag);
+    }
+
+    primaryUserIntent.set("masterGFlags", masterGFlags);
+    primaryUserIntent.set("tserverGFlags", tserverGFlags);
+
+    return currentPayload;
   }
 
   public Map<String, Object> getServiceMetadata() {
