@@ -23,20 +23,20 @@ import java.util.Map;
 
 import static com.yugabyte.servicebroker.utils.CommonUtils.generateRandomString;
 
-public class YQLClient extends YBClient {
+public class YCQLClient extends YBClient {
   private static String DEFAULT_CASSANDRA_USER = "cassandra";
   private static String DEFAULT_CASSANDRA_PASSWORD = "cassandra";
-  private static int DEFAULT_YQL_PORT = 9042;
+  private static int DEFAULT_YCQL_PORT = 9042;
 
   private Session session;
-  public YQLClient(List<HostAndPort> serviceHosts) {
+  public YCQLClient(List<HostAndPort> serviceHosts) {
     super(serviceHosts);
 
     Cluster.Builder builder = Cluster.builder();
     getServiceHostPorts().forEach( serviceIpPort -> {
       builder.addContactPointsWithPorts(new InetSocketAddress(
           serviceIpPort.getHostText(),
-          serviceIpPort.getPortOrDefault(DEFAULT_YQL_PORT)
+          serviceIpPort.getPortOrDefault(DEFAULT_YCQL_PORT)
       ));
     });
     builder.withCredentials(DEFAULT_CASSANDRA_USER, DEFAULT_CASSANDRA_PASSWORD);
@@ -46,7 +46,7 @@ public class YQLClient extends YBClient {
 
   @Override
   protected int getDefaultPort() {
-    return DEFAULT_YQL_PORT;
+    return DEFAULT_YCQL_PORT;
   }
 
   @Override

@@ -23,7 +23,7 @@ import com.yugabyte.servicebroker.model.ServiceInstance;
 import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
 import com.yugabyte.servicebroker.utils.CommonUtils;
 import com.yugabyte.servicebroker.utils.YEDISClient;
-import com.yugabyte.servicebroker.utils.YQLClient;
+import com.yugabyte.servicebroker.utils.YCQLClient;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -190,18 +190,18 @@ public class YugaByteAdminService {
                                                          List<ServiceBinding> existingBindings) {
     String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
     String url = String.format("%s/universes/%s/yqlservers", getApiBaseUrl(), universeUUID);
-    String yqlServers = doGetRaw(url);
+    String ycqlServers = doGetRaw(url);
     url = String.format("%s/universes/%s/redisservers", getApiBaseUrl(), universeUUID);
     String yedisServers = doGetRaw(url);
     Map<String, Object> endpoints = new HashMap<>();
-    List<HostAndPort> yqlHostAndPorts =
-        CommonUtils.convertToHostPorts(yqlServers.replaceAll("^\"|\"$", ""));
+    List<HostAndPort> ycqlHostAndPorts =
+        CommonUtils.convertToHostPorts(ycqlServers.replaceAll("^\"|\"$", ""));
     List<HostAndPort> yedisHostAndPorts =
         CommonUtils.convertToHostPorts(yedisServers.replaceAll("^\"|\"$", ""));
-    YQLClient yqlClient = new YQLClient(yqlHostAndPorts);
+    YCQLClient ycqlClient = new YCQLClient(ycqlHostAndPorts);
     YEDISClient yedisClient = new YEDISClient(yedisHostAndPorts);
     try {
-      endpoints.put("yql", yqlClient.getCredentials());
+      endpoints.put("ycql", ycqlClient.getCredentials());
     } catch (Exception e) {}
 
     try {
