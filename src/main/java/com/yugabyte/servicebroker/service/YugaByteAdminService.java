@@ -190,7 +190,7 @@ public class YugaByteAdminService {
     return si.getUniverseUUID();
   }
 
-  private List<HostAndPort> getEndpointByServiceType(YBClient.ClientType serviceType, String universeUUID) {
+  private List<HostAndPort> getEndpointForServiceType(YBClient.ClientType serviceType, String universeUUID) {
     String url = null;
     switch (serviceType) {
       case YCQL:
@@ -210,7 +210,7 @@ public class YugaByteAdminService {
     String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
     Map<String, Object> endpoints = new HashMap<>();
     for (YBClient.ClientType clientType : YBClient.ClientType.values()) {
-      List<HostAndPort> hostAndPorts = getEndpointByServiceType(clientType, universeUUID);
+      List<HostAndPort> hostAndPorts = getEndpointForServiceType(clientType, universeUUID);
       YBClient ybClient = YBClient.getClientForType(clientType, hostAndPorts, yugaByteConfigRepository);
       try {
         endpoints.put(clientType.name().toLowerCase(), ybClient.getCredentials());
