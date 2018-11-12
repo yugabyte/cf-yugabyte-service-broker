@@ -47,6 +47,7 @@ public class YEDISClient extends YBClient {
         ADMIN_CREDENTIAL_KEY
     );
 
+    // If we have credentials in the yugabyte config table, we would just return that credential.
     if (!credentials.isEmpty()) {
       return credentials;
     }
@@ -62,6 +63,7 @@ public class YEDISClient extends YBClient {
   }
 
   @Override
+  // In case of redis the deleteAuth is noop today, because we don't cycle the passwords.
   public void deleteAuth(Map<String, String> credentials) {
     return;
   }

@@ -20,13 +20,24 @@ import javax.persistence.Lob;
 import javax.persistence.Table;
 import java.util.Map;
 
+/**
+ * YugaByteConfig model is used to store, internal configurations that YugaByte would
+ * use such as admin credentials for universes across different client types (YCQL, YEDIS etc).
+ * And in future any additional configuration/overrides specific to YugaByte that needs to be
+ * persisted would be stored here.
+ */
 @Entity
 @Table(name="yugabyte_configs")
 public class YugaByteConfig {
+  // Config key is a unique identifier for the YugaByte config we want to be persisted
   @Id
   @Column(length = 50)
   private final String configKey;
 
+  /*
+  Config itself stores the actual configuration as a map, and we encrypt this data
+  before persisting this into the DB. In order to encrypt we use the ConverterMapToHash
+  */
   @Lob
   @Column()
   @Convert(converter = ConverterMapToHash.class)

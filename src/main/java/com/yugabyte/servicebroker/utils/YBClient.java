@@ -44,7 +44,6 @@ public abstract class YBClient {
   }
 
   protected Map<String, String> getAdminCredentials(String clientType) {
-    System.out.println(yugaByteConfigRepository);
     Optional<YugaByteConfig> config = yugaByteConfigRepository.findById(clientType);
     if (config.isPresent()) {
       return config.get().getConfig();

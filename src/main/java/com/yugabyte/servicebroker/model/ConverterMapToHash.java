@@ -21,6 +21,9 @@ import javax.persistence.Converter;
 import java.security.Key;
 import java.util.Base64;
 
+/**
+ * This is used to convert a map to encrypted hash and persist it.
+ */
 @Converter
 public class ConverterMapToHash implements AttributeConverter<Object, String> {
   private final static ObjectMapper objectMapper = new ObjectMapper();
