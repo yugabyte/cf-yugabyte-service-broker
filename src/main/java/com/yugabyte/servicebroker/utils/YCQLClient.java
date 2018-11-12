@@ -14,7 +14,9 @@ package com.yugabyte.servicebroker.utils;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -26,12 +28,14 @@ import static com.yugabyte.servicebroker.utils.CommonUtils.generateRandomString;
 public class YCQLClient extends YBClient {
   private static String DEFAULT_CASSANDRA_USER = "cassandra";
   private static String DEFAULT_CASSANDRA_PASSWORD = "cassandra";
+  private String ADMIN_CREDENTIAL_KEY = "ycql-admin-user";
   private static int DEFAULT_YCQL_PORT = 9042;
 
   private Session session;
-  public YCQLClient(List<HostAndPort> serviceHosts) {
-    super(serviceHosts);
 
+  public YCQLClient(List<HostAndPort> serviceHosts,
+                    YugaByteConfigRepository yugaByteConfigRepository) {
+    super(serviceHosts, yugaByteConfigRepository);
     Cluster.Builder builder = Cluster.builder();
     getServiceHostPorts().forEach( serviceIpPort -> {
       builder.addContactPointsWithPorts(new InetSocketAddress(
@@ -39,7 +43,17 @@ public class YCQLClient extends YBClient {
           serviceIpPort.getPortOrDefault(DEFAULT_YCQL_PORT)
       ));
     });
-    builder.withCredentials(DEFAULT_CASSANDRA_USER, DEFAULT_CASSANDRA_PASSWORD);
+    // We will save the admin credentials in our config table.
+    Map<String, String> adminCreds = getAdminCredentials(ADMIN_CREDENTIAL_KEY);
+    if (adminCreds.isEmpty()) {
+      adminCreds = ImmutableMap.of(
+          "username", DEFAULT_CASSANDRA_USER,
+          "password", DEFAULT_CASSANDRA_PASSWORD
+      );
+      setAdminCredentials(ADMIN_CREDENTIAL_KEY, adminCreds);
+    }
+    builder.withCredentials(adminCreds.get("username"),
+                            adminCreds.get("password"));
     Cluster cluster = builder.build();
     session = cluster.connect();
   }
@@ -62,5 +76,13 @@ public class YCQLClient extends YBClient {
     credentials.put("username", username);
     credentials.put("password", password);
     return credentials;
+  }
+
+  @Override
+  public void deleteAuth(Map<String, String> credentials) {
+    String username = credentials.get("username");
+    String dropRole = "DROP ROLE IF EXISTS " + username;
+    session.execute(dropRole);
+    session.close();
   }
 }

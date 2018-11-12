@@ -21,9 +21,9 @@ import com.yugabyte.servicebroker.exception.YugaByteServiceException;
 import com.yugabyte.servicebroker.model.ServiceBinding;
 import com.yugabyte.servicebroker.model.ServiceInstance;
 import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
+import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 import com.yugabyte.servicebroker.utils.CommonUtils;
-import com.yugabyte.servicebroker.utils.YEDISClient;
-import com.yugabyte.servicebroker.utils.YCQLClient;
+import com.yugabyte.servicebroker.utils.YBClient;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -40,6 +40,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,15 +51,18 @@ public class YugaByteAdminService {
 
   private YugaByteServiceConfig adminConfig;
   private ServiceInstanceRepository instanceRepository;
+  private YugaByteConfigRepository yugaByteConfigRepository;
 
   private String authToken;
   private String customerUUID;
 
   @Autowired
   public YugaByteAdminService(YugaByteServiceConfig adminConfig,
-                              ServiceInstanceRepository instanceRepository) {
+                              ServiceInstanceRepository instanceRepository,
+                              YugaByteConfigRepository yugaByteConfigRepository) {
     this.adminConfig = adminConfig;
     this.instanceRepository = instanceRepository;
+    this.yugaByteConfigRepository = yugaByteConfigRepository;
     authenticate();
   }
 
@@ -186,32 +190,54 @@ public class YugaByteAdminService {
     return si.getUniverseUUID();
   }
 
-  public Map<String, Object> getUniverseServiceEndpoints(String instanceId,
-                                                         List<ServiceBinding> existingBindings) {
+  private List<HostAndPort> getEndpointForServiceType(YBClient.ClientType serviceType, String universeUUID) {
+    String url = null;
+    switch (serviceType) {
+      case YCQL:
+        url = String.format("%s/universes/%s/yqlservers", getApiBaseUrl(), universeUUID);
+        break;
+      case YEDIS:
+        url = String.format("%s/universes/%s/redisservers", getApiBaseUrl(), universeUUID);
+        break;
+    }
+    String serverEndpointString =  doGetRaw(url);
+    return CommonUtils.convertToHostPorts(
+        serverEndpointString.replaceAll("^\"|\"$", "")
+    );
+  }
+
+  public Map<String, Object> getUniverseServiceEndpoints(String instanceId) {
     String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
-    String url = String.format("%s/universes/%s/yqlservers", getApiBaseUrl(), universeUUID);
-    String ycqlServers = doGetRaw(url);
-    url = String.format("%s/universes/%s/redisservers", getApiBaseUrl(), universeUUID);
-    String yedisServers = doGetRaw(url);
     Map<String, Object> endpoints = new HashMap<>();
-    List<HostAndPort> ycqlHostAndPorts =
-        CommonUtils.convertToHostPorts(ycqlServers.replaceAll("^\"|\"$", ""));
-    List<HostAndPort> yedisHostAndPorts =
-        CommonUtils.convertToHostPorts(yedisServers.replaceAll("^\"|\"$", ""));
-    YCQLClient ycqlClient = new YCQLClient(ycqlHostAndPorts);
-    YEDISClient yedisClient = new YEDISClient(yedisHostAndPorts);
-    try {
-      endpoints.put("ycql", ycqlClient.getCredentials());
-    } catch (Exception e) {}
+    for (YBClient.ClientType clientType : YBClient.ClientType.values()) {
+      List<HostAndPort> hostAndPorts = getEndpointForServiceType(clientType, universeUUID);
+      YBClient ybClient = YBClient.getClientForType(clientType, hostAndPorts, yugaByteConfigRepository);
+      try {
+        endpoints.put(clientType.name().toLowerCase(), ybClient.getCredentials());
+      } catch (Exception e) {}
 
-    try {
-      yedisClient.setExistingBindings(existingBindings);
-      endpoints.put("yedis", yedisClient.getCredentials());
-    } catch (Exception e) {}
-
-    if (endpoints.isEmpty()) {
-      throw new YugaByteServiceException("Unable to create service bindings.");
     }
     return endpoints;
+  }
+
+  public void deleteServiceBindingCredentials(ServiceBinding serviceBinding) {
+    serviceBinding.getCredentials().forEach((endpoint, credentials) -> {
+      ObjectMapper mapper = new ObjectMapper();
+      Map<String, String> credentialMap = mapper.convertValue(credentials, Map.class);
+      String[] hosts = credentialMap.get("host").split(",");
+      List<HostAndPort> hostAndPorts = new ArrayList<>();
+      hostAndPorts.add(
+          HostAndPort.fromParts(
+              hosts[0],
+              Integer.parseInt(credentialMap.get("port"))
+          )
+      );
+      YBClient ybClient = YBClient.getClientForType(
+          YBClient.ClientType.valueOf(endpoint.toUpperCase()),
+          hostAndPorts,
+          yugaByteConfigRepository
+      );
+      ybClient.deleteAuth(credentialMap);
+    });
   }
 }

@@ -5,6 +5,7 @@ import javax.persistence.Column;
 import javax.persistence.Convert;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.Lob;
 import javax.persistence.Table;
 import java.util.Map;
 
@@ -18,6 +19,7 @@ public class ServiceBinding {
   @Column()
   private final String serviceInstanceId;
 
+  @Lob
   @Column()
   @Convert(converter = ConverterMapToJson.class)
   private final Map<String, Object> credentials;

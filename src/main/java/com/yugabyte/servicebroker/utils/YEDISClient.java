@@ -12,13 +12,10 @@
  */
 package com.yugabyte.servicebroker.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.net.HostAndPort;
-import com.yugabyte.servicebroker.model.ServiceBinding;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 import redis.clients.jedis.Jedis;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,17 +23,17 @@ import static com.yugabyte.servicebroker.utils.CommonUtils.generateRandomString;
 
 public class YEDISClient extends YBClient {
   private static int DEFAULT_YEDIS_PORT = 6379;
+  private String ADMIN_CREDENTIAL_KEY = "yedis-admin-user";
   private Jedis client;
-  List<ServiceBinding> bindings;
 
   @Override
   protected int getDefaultPort() {
     return DEFAULT_YEDIS_PORT;
   }
 
-  @Autowired
-  public YEDISClient(List<HostAndPort> serviceHosts) {
-    super(serviceHosts);
+  public YEDISClient(List<HostAndPort> serviceHosts,
+                     YugaByteConfigRepository yugaByteConfigRepository) {
+    super(serviceHosts, yugaByteConfigRepository);
     HostAndPort hostAndPort = serviceHosts.get(0);
     client = new Jedis(hostAndPort.getHostText(), hostAndPort.getPortOrDefault(DEFAULT_YEDIS_PORT));
     client.connect();
@@ -44,32 +41,30 @@ public class YEDISClient extends YBClient {
 
   @Override
   protected Map<String, String> createAuth() {
-    Map<String, String> credentials = new HashMap();
     // We would only call this method the first time to create a auth, after that, we would just fetch
-    // the auth from existing service binding.
-    ObjectMapper mapper = new ObjectMapper();
-    if (bindings.size() > 0) {
-      bindings.forEach((binding) -> {
-        // We need to check this to handle older credentials which were not Map
-        if (binding.getCredentials().get("yedis") instanceof Map) {
-          Map<String, Object> oldCredentials = (Map<String, Object>) binding.getCredentials().get("yedis");
-          if (oldCredentials.containsKey("password")) {
-            credentials.put("password", oldCredentials.get("password").toString());
-          }
-        }
-      });
+    // the auth from yugabyte_config table.
+    Map<String, String> credentials = getAdminCredentials(
+        ADMIN_CREDENTIAL_KEY
+    );
+
+    // If we have credentials in the yugabyte config table, we would just return that credential.
+    if (!credentials.isEmpty()) {
+      return credentials;
     }
-    if (credentials.isEmpty()) {
-      String password = generateRandomString(false);
-      client.configSet("requirepass", password);
-      client.flushAll();
-      client.disconnect();
-      credentials.put("password", password);
-    }
+
+    String password = generateRandomString(false);
+    client.configSet("requirepass", password);
+    client.flushAll();
+    client.disconnect();
+    credentials.put("password", password);
+    // We will save the admin credentials in our config table.
+    setAdminCredentials(ADMIN_CREDENTIAL_KEY, credentials);
     return credentials;
   }
 
-  public void setExistingBindings(List<ServiceBinding> bindings) {
-    this.bindings = bindings;
+  @Override
+  // In case of redis the deleteAuth is noop today, because we don't cycle the passwords.
+  public void deleteAuth(Map<String, String> credentials) {
+    return;
   }
 }
