@@ -14,7 +14,7 @@ packages:
     memory: 1G
   auto_services:
   - name: p.mysql
-    plan: db-small
+    plan: (( .properties.auto_service_mysql_db_plan.value ))
 
   enable_global_access_to_plans: true
 
@@ -46,6 +46,14 @@ forms:
   - name: yugabyte_admin_password
     type: secret
     label: YugaByte Admin Password
+- name: auto-services-form
+  label: Auto services Config
+  description: Auto Services Configuration
+  properties:
+  - name: auto_service_mysql_db_plan
+    type: string
+    label: MySQL DB plan name
+    default: db-small
 
 requires_product_versions:
 - name: pivotal-mysql
