@@ -133,9 +133,14 @@ public class YugaByteMetadataService {
     }
 
     // Override the defaults based on parameters passed.
-    String universeName=
+    String universeName =
         parameters.getOrDefault("universe_name",
-            "universe-" + instanceId.substring(0, 5)).toString();
+            "service-instance-" + instanceId.substring(0, 8)).toString();
+
+    if (!universeName.matches("^[a-zA-Z0-9-]*$")) {
+      throw new YugaByteServiceException("Invalid Universe Name : " + universeName);
+    }
+
     String ybSoftwareVersion =
         parameters.getOrDefault("yb_version", ybReleases.get(0)).toString();
 
