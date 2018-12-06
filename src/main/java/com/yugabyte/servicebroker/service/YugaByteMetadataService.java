@@ -104,15 +104,6 @@ public class YugaByteMetadataService {
         .collect(Collectors.toList());
   }
 
-  private List<String> getReleases() {
-    String url = String.format("%s/releases", adminService.getApiBaseUrl());
-    JsonNode response = adminService.doGet(url);
-    ObjectMapper mapper = new ObjectMapper();
-    List<String> releases = mapper.convertValue(response, List.class);
-    Collections.sort(releases, Collections.reverseOrder());
-    return releases;
-  }
-
   // YugaByte Admin Universe metadata APIs
   public JsonNode getClusterPayload(CreateServiceInstanceRequest request) {
     String instanceId = request.getServiceInstanceId();
@@ -125,7 +116,7 @@ public class YugaByteMetadataService {
     if (parameters == null) {
       parameters = new HashMap<>();
     }
-    List<String> ybReleases = getReleases();
+    List<String> ybReleases = adminService.getReleases();
     // Only use the software version if the one that is passed is valid.
     if (parameters.containsKey("yb_version") &&
         !ybReleases.contains(parameters.get("yb_version").toString())) {

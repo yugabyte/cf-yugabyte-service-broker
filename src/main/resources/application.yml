@@ -78,7 +78,7 @@ yugabyte:
 spring:
     datasource:
         url: jdbc:mysql://localhost:3306/yugabyte_sb
-        username: yugabyte
+        username: root
         password: supersecret
     jpa:
         show-sql: true

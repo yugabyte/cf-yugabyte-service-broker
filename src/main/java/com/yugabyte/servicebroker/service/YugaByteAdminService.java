@@ -34,6 +34,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +65,7 @@ public class YugaByteAdminService {
     this.adminConfig = adminConfig;
     this.instanceRepository = instanceRepository;
     this.yugaByteConfigRepository = yugaByteConfigRepository;
-    authenticate();
+    validateAndRefreshToken();
   }
 
   public String getApiBaseUrl() {
@@ -76,13 +78,12 @@ public class YugaByteAdminService {
     }
   }
 
-  public JsonNode doGet(String endpoint) {
+  public JsonNode doGet(String endpoint)  {
+    validateAndRefreshToken();
     HttpGet getRequest = new HttpGet(endpoint);
     getRequest.setHeader("Accept", "application/json");
     getRequest.setHeader("Content-type", "application/json");
-    if (authToken != null) {
-      getRequest.setHeader("X-AUTH-TOKEN", authToken);
-    }
+    getRequest.setHeader("X-AUTH-TOKEN", authToken);
     return makeRequest(getRequest);
   }
 
@@ -101,7 +102,9 @@ public class YugaByteAdminService {
     return null;
   }
 
+
   public JsonNode doPost(String endpoint, JsonNode params) {
+    validateAndRefreshToken();
     HttpPost postRequest = new HttpPost(endpoint);
     try {
       StringEntity entity = new StringEntity(params.toString());
@@ -131,28 +134,76 @@ public class YugaByteAdminService {
     CloseableHttpClient client = HttpClients.createDefault();
     try {
       CloseableHttpResponse response = client.execute(request);
+      String body = EntityUtils.toString(response.getEntity());
       ObjectMapper mapper = new ObjectMapper();
-      return mapper.readTree(response.getEntity().getContent());
+      return mapper.readTree(body);
     } catch (IOException e) {
       e.printStackTrace();
     }
     throw new YugaByteServiceException("Unable to parse json");
   }
 
-  private void authenticate() {
-    String url = String.format("%s/login", getApiBaseUrl());
-    ObjectMapper mapper = new ObjectMapper();
-    ObjectNode params = mapper.createObjectNode();
-    params.put("email", this.adminConfig.user);
-    params.put("password", this.adminConfig.password);
+  private void validateAndRefreshToken() {
+    CloseableHttpClient client = HttpClients.createDefault();
+    CloseableHttpResponse response = null;
 
-    JsonNode response = doPost(url, params);
-    if (response != null) {
-      authToken = response.get("authToken").asText();
-      customerUUID = response.get("customerUUID").asText();
-    } else {
-      throw new YugaByteServiceException("Unable to authenticate to YugaByte Admin Console");
+    boolean invalidToken = (authToken == null);
+    if (!invalidToken) {
+      // If we have a authToken lets validate and confirm by hitting the customer
+      // endpoint.
+      HttpGet getRequest = new HttpGet(getApiBaseUrl());
+      getRequest.setHeader("Accept", "application/json");
+      getRequest.setHeader("Content-type", "application/json");
+      getRequest.setHeader("X-AUTH-TOKEN", authToken);
+      try {
+        response = client.execute(getRequest);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+      if (response.getStatusLine().getStatusCode() == 403) {
+        // Delete the authToken, since it is invalid, they need to re-authenticate
+        authToken = null;
+        customerUUID = null;
+        invalidToken = true;
+      }
     }
+
+    // If the token we have is invalid, lets login and fetch the new token.
+    if (invalidToken) {
+      String url = String.format("%s/login", getApiBaseUrl());
+      ObjectMapper mapper = new ObjectMapper();
+      try {
+        ObjectNode authParams = mapper.createObjectNode();
+        authParams.put("email", this.adminConfig.user);
+        authParams.put("password", this.adminConfig.password);
+        StringEntity entity = new StringEntity(authParams.toString());
+        HttpPost authRequest = new HttpPost(url);
+        authRequest.setHeader("Accept", "application/json");
+        authRequest.setHeader("Content-type", "application/json");
+        authRequest.setEntity(entity);
+        response = client.execute(authRequest);
+        if (response.getStatusLine().getStatusCode() == 200) {
+          String body = EntityUtils.toString(response.getEntity());
+          JsonNode authResponse = mapper.readTree(body);
+          authToken = authResponse.get("authToken").asText();
+          customerUUID = authResponse.get("customerUUID").asText();
+        } else {
+          throw new YugaByteServiceException("Unable to authenticate to YugaByte Admin Console");
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+  public List<String> getReleases() {
+    String url = String.format("%s/releases", getApiBaseUrl());
+    JsonNode response = doGet(url);
+    ObjectMapper mapper = new ObjectMapper();
+    List<String> releases = mapper.convertValue(response, List.class);
+    Collections.sort(releases, Collections.reverseOrder());
+    return releases;
   }
 
   public JsonNode configureUniverse(JsonNode params) {
