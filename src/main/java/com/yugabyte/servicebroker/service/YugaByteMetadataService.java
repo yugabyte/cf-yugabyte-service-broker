@@ -58,8 +58,7 @@ public class YugaByteMetadataService {
 
   // YugaByte Admin org.yb.servicebroker.common metadata APIs
   private JsonNode fetchProvider(String providerType, String kubeProvider) {
-    String url = String.format("%s/providers", adminService.getApiBaseUrl());
-    JsonNode response = adminService.doGet(url);
+    JsonNode response = adminService.getProviders();
     Iterator<JsonNode> it = response.iterator();
     while (it.hasNext()) {
       JsonNode provider = it.next();
@@ -79,10 +78,7 @@ public class YugaByteMetadataService {
   }
 
   private List<String> fetchRegionUUIDs(UUID providerUUID, List<String> preferredRegions) {
-    String providerBaseUrl = String.format("%s/providers/%s",
-        adminService.getApiBaseUrl(), providerUUID);
-    JsonNode response = adminService.doGet(String.format("%s/regions", providerBaseUrl));
-
+    JsonNode response = adminService.getRegions(providerUUID);
     // Ideally we want user to provider the region they want to bring the universe
     // if they don't then we default pick the first region from the list of regions.
     if (!preferredRegions.isEmpty()) {
@@ -96,9 +92,7 @@ public class YugaByteMetadataService {
   }
 
   private List<String> fetchAccessKeys(UUID providerUUID) {
-    String providerBaseUrl = String.format("%s/providers/%s",
-        adminService.getApiBaseUrl(), providerUUID);
-    JsonNode response = adminService.doGet(String.format("%s/access_keys", providerBaseUrl));
+    JsonNode response = adminService.getAccessKeys(providerUUID);
     return StreamSupport.stream(response.spliterator(), false)
         .map( accessKey -> accessKey.get("idKey").get("keyCode").asText())
         .collect(Collectors.toList());
