@@ -118,8 +118,19 @@ public class YugaByteAdminService {
   }
 
   private JsonNode makeRequest(String endpoint, HttpMethod method, JsonNode bodyJson) {
+    System.out.println(">>>>>>>>>>");
+      System.out.println(getApiUrl(endpoint));
+    System.out.println(method);
+    System.out.println(getEntity(bodyJson));
+
+    System.out.println(">>>>>>>>>>");
+
     ResponseEntity<JsonNode> response = restTemplate.exchange(getApiUrl(endpoint), method,
         getEntity(bodyJson), JsonNode.class);
+    System.out.println(">>>>>>>>>>");
+    System.out.println(response.getBody());
+    System.out.println(">>>>>>>>>>");
+
     if (response.getStatusCode() == HttpStatus.OK) {
       return response.getBody();
     } else {
