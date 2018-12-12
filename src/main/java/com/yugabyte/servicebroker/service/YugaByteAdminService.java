@@ -24,21 +24,17 @@ import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
 import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 import com.yugabyte.servicebroker.utils.CommonUtils;
 import com.yugabyte.servicebroker.utils.YBClient;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,6 +48,7 @@ public class YugaByteAdminService {
   private YugaByteServiceConfig adminConfig;
   private ServiceInstanceRepository instanceRepository;
   private YugaByteConfigRepository yugaByteConfigRepository;
+  private RestTemplate restTemplate;
 
   private String authToken = null;
   private String customerUUID = null;
@@ -59,10 +56,12 @@ public class YugaByteAdminService {
   @Autowired
   public YugaByteAdminService(YugaByteServiceConfig adminConfig,
                               ServiceInstanceRepository instanceRepository,
-                              YugaByteConfigRepository yugaByteConfigRepository) {
+                              YugaByteConfigRepository yugaByteConfigRepository,
+                              RestTemplate restTemplate) {
     this.adminConfig = adminConfig;
     this.instanceRepository = instanceRepository;
     this.yugaByteConfigRepository = yugaByteConfigRepository;
+    this.restTemplate = restTemplate;
   }
 
   private String getApiUrl(String endpoint) {
@@ -79,116 +78,77 @@ public class YugaByteAdminService {
     return url;
   }
 
-  private void updateHeaders(HttpRequestBase request) {
-    request.setHeader("Accept", "application/json");
-    request.setHeader("Content-type", "application/json");
+  private HttpEntity getEntity(JsonNode bodyJson) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+    headers.setContentType(MediaType.APPLICATION_JSON);
     if (authToken != null && !authToken.isEmpty()) {
-      request.setHeader("X-AUTH-TOKEN", authToken);
+      headers.set("X-AUTH-TOKEN", authToken);
+    }
+
+    if (bodyJson == null) {
+      return new HttpEntity<>(headers);
+    } else {
+      return new HttpEntity<>(bodyJson, headers);
     }
   }
 
   private JsonNode doGet(String endpoint)  {
     validateAndRefreshToken();
-    HttpGet getRequest = new HttpGet(getApiUrl(endpoint));
-    updateHeaders(getRequest);
-
-    return makeRequest(getRequest);
+    return makeRequest(endpoint, HttpMethod.GET, null);
   }
 
   private String doGetRaw(String endpoint) {
-    HttpGet getRequest = new HttpGet(getApiUrl(endpoint));
-    updateHeaders(getRequest);
-
-    try {
-      CloseableHttpClient client = HttpClients.createDefault();
-      CloseableHttpResponse response = client.execute(getRequest);
-      return EntityUtils.toString(response.getEntity());
-    } catch (IOException e) {
-      e.printStackTrace();
+    HttpEntity<JsonNode> entity = getEntity(null);
+    ResponseEntity<String> response = restTemplate.exchange(getApiUrl(endpoint), HttpMethod.GET, entity, String.class);
+    if (response.getStatusCode() == HttpStatus.OK) {
+      return response.getBody();
+    } else {
+      throw new YugaByteServiceException("GET request failed: " + response.getBody());
     }
-    return null;
   }
 
   private JsonNode doPost(String endpoint, JsonNode params) {
     validateAndRefreshToken();
-    HttpPost postRequest = new HttpPost(getApiUrl(endpoint));
-    try {
-      StringEntity entity = new StringEntity(params.toString());
-      updateHeaders(postRequest);
-      postRequest.setEntity(entity);
-      return makeRequest(postRequest);
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-    throw new YugaByteServiceException("Unable to make the POST request");
+    return makeRequest(endpoint, HttpMethod.POST, params);
   }
 
   private JsonNode doDelete(String endpoint) {
-    HttpDelete deleteRequest = new HttpDelete(getApiUrl(endpoint));
-    updateHeaders(deleteRequest);
-    return makeRequest(deleteRequest);
+    return makeRequest(endpoint, HttpMethod.DELETE, null);
   }
 
-  private JsonNode makeRequest(HttpRequestBase request) {
-    CloseableHttpClient client = HttpClients.createDefault();
-    try {
-      CloseableHttpResponse response = client.execute(request);
-      String body = EntityUtils.toString(response.getEntity());
-      ObjectMapper mapper = new ObjectMapper();
-      return mapper.readTree(body);
-    } catch (IOException e) {
-      e.printStackTrace();
+  private JsonNode makeRequest(String endpoint, HttpMethod method, JsonNode bodyJson) {
+    ResponseEntity<JsonNode> response = restTemplate.exchange(getApiUrl(endpoint), method,
+        getEntity(bodyJson), JsonNode.class);
+    if (response.getStatusCode() == HttpStatus.OK) {
+      return response.getBody();
+    } else {
+      throw new YugaByteServiceException("YugaWare request failed: " + response.getBody().toString());
     }
-    throw new YugaByteServiceException("Unable to parse json");
   }
 
   private void validateAndRefreshToken() {
-    CloseableHttpClient client = HttpClients.createDefault();
-    CloseableHttpResponse response = null;
-
     boolean invalidToken = (authToken == null);
     if (!invalidToken) {
       // If we have a authToken lets validate and confirm by hitting the customer
       // endpoint.
-      HttpGet getRequest = new HttpGet(getApiUrl(""));
-      updateHeaders(getRequest);
       try {
-        response = client.execute(getRequest);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-
-      if (response.getStatusLine().getStatusCode() == 403) {
-        // Delete the authToken, since it is invalid, they need to re-authenticate
-        authToken = null;
-        customerUUID = null;
-        invalidToken = true;
+        makeRequest("", HttpMethod.GET, null);
+      } catch (YugaByteServiceException ye) {
+          resetAuthToken();
+          invalidToken = true;
       }
     }
 
     // If the token we have is invalid, lets login and fetch the new token.
     if (invalidToken) {
       ObjectMapper mapper = new ObjectMapper();
-      try {
-        ObjectNode authParams = mapper.createObjectNode();
-        authParams.put("email", this.adminConfig.user);
-        authParams.put("password", this.adminConfig.password);
-        StringEntity entity = new StringEntity(authParams.toString());
-        HttpPost authRequest = new HttpPost(getApiUrl("login"));
-        updateHeaders(authRequest);
-        authRequest.setEntity(entity);
-        response = client.execute(authRequest);
-        if (response.getStatusLine().getStatusCode() == 200) {
-          String body = EntityUtils.toString(response.getEntity());
-          JsonNode authResponse = mapper.readTree(body);
-          authToken = authResponse.get("authToken").asText();
-          customerUUID = authResponse.get("customerUUID").asText();
-        } else {
-          throw new YugaByteServiceException("Unable to authenticate to YugaByte Admin Console");
-        }
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+      ObjectNode authParams = mapper.createObjectNode();
+      authParams.put("email", this.adminConfig.user);
+      authParams.put("password", this.adminConfig.password);
+      JsonNode authResponse = makeRequest("login", HttpMethod.POST, authParams);
+      authToken = authResponse.get("authToken").asText();
+      customerUUID = authResponse.get("customerUUID").asText();
     }
   }
 
@@ -201,6 +161,11 @@ public class YugaByteAdminService {
     }
     Collections.sort(releases, Collections.reverseOrder());
     return releases;
+  }
+
+  public void resetAuthToken() {
+    authToken = null;
+    customerUUID = null;
   }
 
   public JsonNode getProviders() {
@@ -231,11 +196,6 @@ public class YugaByteAdminService {
 
   public JsonNode deleteUniverse(String universeUUID) {
     return doDelete(String.format("universes/%s", universeUUID));
-  }
-
-  public JsonNode getUniverseByServiceInstance(String instanceId) {
-    String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
-    return getUniverse(universeUUID);
   }
 
   private String getUniverseUUIDFromServiceInstance(String instanceId) {
