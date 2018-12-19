@@ -104,7 +104,8 @@ public class YugaByteAdminService {
     if (response.getStatusCode() == HttpStatus.OK) {
       return response.getBody();
     } else {
-      throw new YugaByteServiceException("GET request failed: " + response.getBody());
+      throw new YugaByteServiceException("GET request failed with status: " +
+          response.getStatusCode() + "msg: " + response.getBody());
     }
   }
 
@@ -123,7 +124,8 @@ public class YugaByteAdminService {
     if (response.getStatusCode() == HttpStatus.OK) {
       return response.getBody();
     } else {
-      throw new YugaByteServiceException("YugaWare request failed: " + response.getBody().toString());
+      throw new YugaByteServiceException("YugaWare request failed with status: " +
+          response.getStatusCode() + "msg: " + response.getBody());
     }
   }
 
@@ -147,6 +149,10 @@ public class YugaByteAdminService {
       authParams.put("email", this.adminConfig.user);
       authParams.put("password", this.adminConfig.password);
       JsonNode authResponse = makeRequest("login", HttpMethod.POST, authParams);
+      if (!authResponse.has("authToken") ||
+          !authResponse.has("customerUUID")) {
+        throw new YugaByteServiceException("Unable to authenticate with YugaWare");
+      }
       authToken = authResponse.get("authToken").asText();
       customerUUID = authResponse.get("customerUUID").asText();
     }
