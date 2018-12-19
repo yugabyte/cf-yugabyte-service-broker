@@ -12,20 +12,18 @@
  */
 package com.yugabyte.servicebroker;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
-@SpringBootApplication
-public class YugaByteServiceBrokerApplication {
-
-	@Bean
-	public RestTemplate restTemplate() {
-		return new RestTemplate();
-	}
-
-	public static void main(String[] args) {
-		SpringApplication.run(YugaByteServiceBrokerApplication.class, args);
-	}
+@Configuration
+@EnableAutoConfiguration
+@ComponentScan("com.yugabyte.servicebroker")
+public class YugaByteServiceTestConfig {
+  @Bean
+  public RestTemplate restTemplate() {
+    return new RestTemplate();
+  }
 }

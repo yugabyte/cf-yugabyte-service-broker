@@ -28,3 +28,6 @@ tile-history.yml
 /dist/
 /nbdist/
 /.nb-gradle/
+
+### Mock Server logs ###
+mockserver*.log
