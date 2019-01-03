@@ -4,6 +4,10 @@ icon_file: resources/yugabyte_full_logo.png
 label:  YugaByte DB
 description: YugaByte DB Enterprise
 
+stemcell_criteria:
+  os: ubuntu-xenial
+  version: '170'
+
 packages:
 - name: yugabyte_service_broker
   type: app-broker
