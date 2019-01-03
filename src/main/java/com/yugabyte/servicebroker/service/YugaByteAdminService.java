@@ -18,12 +18,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.net.HostAndPort;
 import com.yugabyte.servicebroker.config.YugaByteServiceConfig;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
+import com.yugabyte.servicebroker.exception.YugaByteServiceResponseHandler;
 import com.yugabyte.servicebroker.model.ServiceBinding;
 import com.yugabyte.servicebroker.model.ServiceInstance;
 import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
 import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 import com.yugabyte.servicebroker.utils.CommonUtils;
 import com.yugabyte.servicebroker.utils.YBClient;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
 import org.springframework.http.HttpEntity;
@@ -52,6 +55,7 @@ public class YugaByteAdminService {
 
   private String authToken = null;
   private String customerUUID = null;
+  private static final Log logger = LogFactory.getLog(YugaByteAdminService.class);
 
   @Autowired
   public YugaByteAdminService(YugaByteServiceConfig adminConfig,
@@ -62,6 +66,7 @@ public class YugaByteAdminService {
     this.instanceRepository = instanceRepository;
     this.yugaByteConfigRepository = yugaByteConfigRepository;
     this.restTemplate = restTemplate;
+    this.restTemplate.setErrorHandler(new YugaByteServiceResponseHandler());
   }
 
   private String getApiUrl(String endpoint) {
@@ -93,7 +98,7 @@ public class YugaByteAdminService {
     }
   }
 
-  private JsonNode doGet(String endpoint)  {
+  private ResponseEntity<JsonNode> doGet(String endpoint)  {
     validateAndRefreshToken();
     return makeRequest(endpoint, HttpMethod.GET, null);
   }
@@ -105,27 +110,33 @@ public class YugaByteAdminService {
       return response.getBody();
     } else {
       throw new YugaByteServiceException("GET request failed with status: " +
-          response.getStatusCode() + "msg: " + response.getBody());
+          response.getStatusCode() + "body: " + response.getBody());
     }
   }
 
-  private JsonNode doPost(String endpoint, JsonNode params) {
+  private ResponseEntity<JsonNode> doPost(String endpoint, JsonNode params) {
     validateAndRefreshToken();
     return makeRequest(endpoint, HttpMethod.POST, params);
   }
 
-  private JsonNode doDelete(String endpoint) {
+  private ResponseEntity<JsonNode> doDelete(String endpoint) {
+    validateAndRefreshToken();
     return makeRequest(endpoint, HttpMethod.DELETE, null);
   }
 
-  private JsonNode makeRequest(String endpoint, HttpMethod method, JsonNode bodyJson) {
-    ResponseEntity<JsonNode> response = restTemplate.exchange(getApiUrl(endpoint), method,
+  private ResponseEntity<JsonNode> makeRequest(String endpoint, HttpMethod method, JsonNode bodyJson) {
+    return restTemplate.exchange(getApiUrl(endpoint), method,
         getEntity(bodyJson), JsonNode.class);
-    if (response.getStatusCode() == HttpStatus.OK) {
-      return response.getBody();
+  }
+
+  private JsonNode getResponseOrThrow(ResponseEntity<JsonNode> responseEntity,
+                                      String exceptionMessage) {
+    if (responseEntity.getStatusCode() == HttpStatus.OK) {
+      return responseEntity.getBody();
     } else {
-      throw new YugaByteServiceException("YugaWare request failed with status: " +
-          response.getStatusCode() + "msg: " + response.getBody());
+      logger.warn("YugaWare API returned status: " + responseEntity.getStatusCode().value() +
+                  ", body: " + responseEntity.getBody());
+      throw new YugaByteServiceException(exceptionMessage);
     }
   }
 
@@ -148,18 +159,23 @@ public class YugaByteAdminService {
       ObjectNode authParams = mapper.createObjectNode();
       authParams.put("email", this.adminConfig.user);
       authParams.put("password", this.adminConfig.password);
-      JsonNode authResponse = makeRequest("login", HttpMethod.POST, authParams);
-      if (!authResponse.has("authToken") ||
-          !authResponse.has("customerUUID")) {
+      ResponseEntity<JsonNode> authResponse = makeRequest("login", HttpMethod.POST, authParams);
+      JsonNode responseBody = getResponseOrThrow(
+          authResponse,
+          "Unable to authenticate with YugaWare");
+      if (!responseBody.has("authToken") ||
+          !responseBody.has("customerUUID")) {
         throw new YugaByteServiceException("Unable to authenticate with YugaWare");
       }
-      authToken = authResponse.get("authToken").asText();
-      customerUUID = authResponse.get("customerUUID").asText();
+      authToken = responseBody.get("authToken").asText();
+      customerUUID = responseBody.get("customerUUID").asText();
     }
   }
 
   public List<String> getReleases() {
-    JsonNode response = doGet("releases");
+    ResponseEntity<JsonNode> responseEntity = doGet("releases");
+    JsonNode response = getResponseOrThrow(responseEntity,
+        "Unable to fetch releases metadata");
     ObjectMapper mapper = new ObjectMapper();
     List<String> releases = mapper.convertValue(response, List.class);
     if (releases == null) {
@@ -175,33 +191,37 @@ public class YugaByteAdminService {
   }
 
   public JsonNode getProviders() {
-    return doGet("providers");
+    return getResponseOrThrow(doGet("providers"), "Unable to fetch providers");
   }
 
   public JsonNode getRegions(UUID providerUUID) {
-    String regionsEndpoint = String.format("providers/%s/regions", providerUUID);
-    return doGet(regionsEndpoint);
+    return getResponseOrThrow(doGet(String.format("providers/%s/regions", providerUUID)),
+        "Unable to fetch regions");
   }
 
   public JsonNode getAccessKeys(UUID providerUUID) {
-    String accessKeysEndpoint = String.format("providers/%s/access_keys", providerUUID);
-    return doGet(accessKeysEndpoint);
+    return getResponseOrThrow(doGet(String.format("providers/%s/access_keys", providerUUID)),
+        "Unable to fetch access keys");
   }
 
   public JsonNode configureUniverse(JsonNode params) {
-    return doPost("universe_configure", params);
+    return getResponseOrThrow(doPost("universe_configure", params),
+        "Unable to configure universe");
   }
 
   public JsonNode createUniverse(JsonNode params) {
-    return doPost("universes", params);
+    return getResponseOrThrow(doPost("universes", params),
+        "Unable to create universe");
   }
 
   public JsonNode getUniverse(String universeUUID) {
-    return doGet(String.format("universes/%s", universeUUID));
+    return getResponseOrThrow(doGet(String.format("universes/%s", universeUUID)),
+        "Unable to fetch universe " + universeUUID);
   }
 
   public JsonNode deleteUniverse(String universeUUID) {
-    return doDelete(String.format("universes/%s", universeUUID));
+    return getResponseOrThrow(doDelete(String.format("universes/%s", universeUUID)),
+        "Unable to delete universe " + universeUUID);
   }
 
   private String getUniverseUUIDFromServiceInstance(String instanceId) {

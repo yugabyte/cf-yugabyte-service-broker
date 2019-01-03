@@ -13,6 +13,11 @@
 package com.yugabyte.servicebroker.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.yugabyte.servicebroker.exception.YugaByteServiceException;
+import com.yugabyte.servicebroker.model.ServiceInstance;
+import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
 import org.springframework.cloud.servicebroker.model.instance.CreateServiceInstanceRequest;
@@ -28,14 +33,12 @@ import org.springframework.cloud.servicebroker.model.instance.UpdateServiceInsta
 import org.springframework.cloud.servicebroker.model.instance.UpdateServiceInstanceResponse;
 import org.springframework.cloud.servicebroker.service.ServiceInstanceService;
 import org.springframework.stereotype.Service;
-import com.yugabyte.servicebroker.exception.YugaByteServiceException;
-import com.yugabyte.servicebroker.model.ServiceInstance;
-import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
 
 import java.util.Optional;
 
 @Service
 public class YugaByteInstanceService implements ServiceInstanceService {
+  private static final Log logger = LogFactory.getLog(YugaByteInstanceService.class);
 
   @Autowired
   YugaByteAdminService adminService;
@@ -150,24 +153,26 @@ public class YugaByteInstanceService implements ServiceInstanceService {
     if (serviceInstance.isPresent()) {
       ServiceInstance si = serviceInstance.get();
       String universeUUID = si.getUniverseUUID();
-      JsonNode response = adminService.getUniverse(universeUUID);
-      OperationState state;
-      // If the error is invalid universe, likely the universe is deleted
-      if (response.has("error") &&
-          response.get("error").asText().contains("Invalid Universe UUID") &&
-          si.getUniverseState().equals(ServiceInstance.UniverseState.DELETING)) {
-        state = OperationState.SUCCEEDED;
-      } else {
+      OperationState state = OperationState.IN_PROGRESS;
+      try {
+        JsonNode response = adminService.getUniverse(universeUUID);
         si.updateState(response.get("universeDetails"));
         instanceRepository.save(si);
         if (si.getUniverseState().equals(ServiceInstance.UniverseState.LIVE)) {
           state = OperationState.SUCCEEDED;
         } else if (si.getUniverseState().equals(ServiceInstance.UniverseState.ERROR)) {
           state = OperationState.FAILED;
+        }
+      } catch (YugaByteServiceException ye) {
+        // If the error is invalid universe, likely the universe is deleted
+        if (ye.getMessage().contains("Unable to fetch universe") &&
+            si.getUniverseState().equals(ServiceInstance.UniverseState.DELETING)) {
+          state = OperationState.SUCCEEDED;
         } else {
-          state = OperationState.IN_PROGRESS;
+          logger.warn("Unhandled YugaByte Service exception : " + ye.getMessage());
         }
       }
+
       return GetLastServiceOperationResponse.builder()
           .operationState(state)
           .build();

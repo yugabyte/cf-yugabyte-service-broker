@@ -33,7 +33,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
@@ -188,6 +187,18 @@ public class YugaByteAdminServiceTest  {
   }
 
   @Test
+  public void testGetProvidersFailure() {
+    expectLoginRequest();
+    expectEndpointRequest(HttpMethod.GET, "/providers", HttpStatus.INTERNAL_SERVER_ERROR,
+        "[{\"error\" : \"something happened\"}]");
+    try {
+      adminService.getProviders();
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to fetch providers", ye.getLocalizedMessage());
+    }
+  }
+
+  @Test
   public void testGetRegions() {
     expectLoginRequest();
     UUID providerUUID = UUID.randomUUID();
@@ -202,7 +213,7 @@ public class YugaByteAdminServiceTest  {
   }
 
   @Test
-  public void testGetRegionsFailure() {
+  public void testGetRegionsUnAuthenticated() {
     try {
       expectLoginRequest();
       UUID providerUUID = UUID.randomUUID();
@@ -211,6 +222,19 @@ public class YugaByteAdminServiceTest  {
       assertTrue(ae.getMessage()
           .contains("1 request(s) executed:\nPOST http://localhost:9000/api/login")
       );
+    }
+  }
+
+  @Test
+  public void testGetRegionsFailure() {
+    expectLoginRequest();
+    UUID providerUUID = UUID.randomUUID();
+    expectEndpointRequest(HttpMethod.GET, "/providers/" + providerUUID + "/regions", HttpStatus.INTERNAL_SERVER_ERROR,
+        "[{\"error\" : \"something happened\"}]");
+    try {
+      adminService.getRegions(providerUUID);
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to fetch regions", ye.getLocalizedMessage());
     }
   }
 
@@ -251,8 +275,8 @@ public class YugaByteAdminServiceTest  {
         "[{\"error\" : \"something happened\"}]");
     try {
       adminService.getAccessKeys(providerUUID);
-    } catch (HttpServerErrorException he) {
-      assertEquals("500 Internal Server Error", he.getLocalizedMessage());
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to fetch access keys", ye.getLocalizedMessage());
     }
   }
 
@@ -277,11 +301,131 @@ public class YugaByteAdminServiceTest  {
     ObjectNode params = mapper.createObjectNode();
     params.put("foo", "bar");
     expectEndpointRequestWithBody(HttpMethod.POST,"/universes", params.toString(),
-        HttpStatus.INTERNAL_SERVER_ERROR, "Invalid JSON");
+        HttpStatus.INTERNAL_SERVER_ERROR, "[{\"error\" : \"something happened\"}]");
     try {
       adminService.createUniverse(params);
-    } catch (HttpServerErrorException he) {
-      assertEquals("500 Internal Server Error", he.getLocalizedMessage());
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to create universe", ye.getLocalizedMessage());
+    }
+  }
+
+  @Test
+  public void testConfigureUniverseSuccess() {
+    expectLoginRequest();
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectNode params = mapper.createObjectNode();
+    ObjectNode responseJson = mapper.createObjectNode();
+    responseJson.put("success", true);
+    expectEndpointRequest(HttpMethod.POST, "/universe_configure", HttpStatus.OK,
+        responseJson.toString());
+    JsonNode actualResponse = adminService.configureUniverse(params);
+    assertEquals(responseJson, actualResponse);
+  }
+
+  @Test
+  public void testConfigureUniverseUnAuthenticated() {
+    try {
+      expectLoginRequest();
+      ObjectMapper mapper = new ObjectMapper();
+      ObjectNode params = mapper.createObjectNode();
+      adminService.configureUniverse(params);
+      mockServer.verify();
+    } catch (AssertionError ae) {
+      assertTrue(ae.getMessage()
+          .contains("1 request(s) executed:\nPOST http://localhost:9000/api/login")
+      );
+    }
+  }
+
+  @Test
+  public void testConfigureUniverseFailure() {
+    expectLoginRequest();
+    expectEndpointRequest(HttpMethod.POST, "/universe_configure", HttpStatus.INTERNAL_SERVER_ERROR,
+        "[{\"error\" : \"something happened\"}]");
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      ObjectNode params = mapper.createObjectNode();
+      adminService.configureUniverse(params);
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to configure universe", ye.getLocalizedMessage());
+    }
+  }
+
+  @Test
+  public void testGetUniverseSuccess() {
+    expectLoginRequest();
+    UUID universeUUID = UUID.randomUUID();
+    ObjectNode responseJson = mapper.createObjectNode();
+    responseJson.put("success", true);
+    expectEndpointRequest(HttpMethod.GET, "/universes/" + universeUUID , HttpStatus.OK,
+        responseJson.toString());
+    JsonNode actualResponse = adminService.getUniverse(universeUUID.toString());
+    assertEquals(responseJson, actualResponse);
+  }
+
+  @Test
+  public void testGetUniverseUnAuthenticated() {
+    try {
+      expectLoginRequest();
+      UUID univeseUUID = UUID.randomUUID();
+      adminService.getUniverse(univeseUUID.toString());
+      mockServer.verify();
+    } catch (AssertionError ae) {
+      assertTrue(ae.getMessage()
+          .contains("1 request(s) executed:\nPOST http://localhost:9000/api/login")
+      );
+    }
+  }
+
+  @Test
+  public void testGetUniverseFailure() {
+    expectLoginRequest();
+    UUID universeUUID = UUID.randomUUID();
+    expectEndpointRequest(HttpMethod.GET, "/universes/" + universeUUID,
+        HttpStatus.INTERNAL_SERVER_ERROR, "[{\"error\" : \"something happened\"}]");
+    try {
+      adminService.getUniverse(universeUUID.toString());
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to fetch universe " + universeUUID, ye.getLocalizedMessage());
+    }
+  }
+
+  @Test
+  public void testDeleteUniverseSuccess() {
+    expectLoginRequest();
+    UUID universeUUID = UUID.randomUUID();
+    ObjectNode responseJson = mapper.createObjectNode();
+    responseJson.put("success", true);
+    expectEndpointRequest(HttpMethod.DELETE, "/universes/" + universeUUID , HttpStatus.OK,
+        responseJson.toString());
+    JsonNode actualResponse = adminService.deleteUniverse(universeUUID.toString());
+    assertEquals(responseJson, actualResponse);
+  }
+
+  @Test
+  public void testDeleteUniverseUnAuthenticated() {
+    try {
+      expectLoginRequest();
+      UUID univeseUUID = UUID.randomUUID();
+      adminService.deleteUniverse(univeseUUID.toString());
+      mockServer.verify();
+    } catch (AssertionError ae) {
+      assertTrue(ae.getMessage()
+          .contains("1 request(s) executed:\nPOST http://localhost:9000/api/login")
+      );
+    }
+  }
+
+  @Test
+  public void testDeleteUniverseFailure() {
+    expectLoginRequest();
+    UUID universeUUID = UUID.randomUUID();
+    expectEndpointRequest(HttpMethod.DELETE, "/universes/" + universeUUID,
+        HttpStatus.INTERNAL_SERVER_ERROR, "[{\"error\" : \"something happened\"}]");
+    try {
+      adminService.deleteUniverse(universeUUID.toString());
+    } catch (YugaByteServiceException ye) {
+      assertEquals("Unable to delete universe " + universeUUID, ye.getLocalizedMessage());
     }
   }
 
