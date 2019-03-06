@@ -26,13 +26,24 @@ import java.util.stream.Collectors;
 public abstract class YBClient {
   public enum ClientType {
     YCQL,
-    YEDIS
+    YEDIS;
+
+    public YBClient getInstance(List<HostAndPort> serviceHosts,
+                                YugaByteConfigRepository yugaByteConfigRepository) {
+      switch (this) {
+        case YCQL:
+          return new YCQLClient(serviceHosts, yugaByteConfigRepository);
+        case YEDIS:
+          return new YEDISClient(serviceHosts, yugaByteConfigRepository);
+      }
+      return null;
+    }
   }
 
   private List<HostAndPort> serviceHostPorts;
   protected List<HostAndPort> getServiceHostPorts() { return serviceHostPorts; }
   protected abstract int getDefaultPort();
-  protected abstract Map<String, String> createAuth();
+  protected abstract Map<String, String> createAuth(Map<String, Object> parameters);
   public abstract void deleteAuth(Map<String, String> credentials);
 
   private YugaByteConfigRepository yugaByteConfigRepository;
@@ -56,23 +67,12 @@ public abstract class YBClient {
     yugaByteConfigRepository.save(newConfig);
   }
 
-  public Map<String, String> getCredentials() {
+  public Map<String, String> getCredentials(Map<String, Object> parameters) {
     String serviceHost = serviceHostPorts.stream().map(sh -> sh.getHostText()).collect(Collectors.joining( "," ));
     int servicePort = serviceHostPorts.get(0).getPortOrDefault(getDefaultPort());
-    Map<String, String> credentials =  createAuth();
+    Map<String, String> credentials =  createAuth(parameters);
     credentials.put("host", serviceHost);
     credentials.put("port", String.valueOf(servicePort));
     return credentials;
-  }
-
-  public static YBClient getClientForType(ClientType type, List<HostAndPort> serviceHosts,
-                                          YugaByteConfigRepository yugaByteConfigRepository) {
-    switch (type) {
-      case YCQL:
-        return new YCQLClient(serviceHosts, yugaByteConfigRepository);
-      case YEDIS:
-        return new YEDISClient(serviceHosts, yugaByteConfigRepository);
-    }
-    return null;
   }
 }

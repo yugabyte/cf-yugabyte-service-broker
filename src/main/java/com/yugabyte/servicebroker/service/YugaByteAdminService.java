@@ -29,6 +29,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.exception.ServiceInstanceDoesNotExistException;
+import org.springframework.cloud.servicebroker.model.binding.CreateServiceInstanceBindingRequest;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -250,14 +251,14 @@ public class YugaByteAdminService {
     );
   }
 
-  public Map<String, Object> getUniverseServiceEndpoints(String instanceId) {
-    String universeUUID = getUniverseUUIDFromServiceInstance(instanceId);
+  public Map<String, Object> getUniverseServiceEndpoints(CreateServiceInstanceBindingRequest request) {
+    String universeUUID = getUniverseUUIDFromServiceInstance(request.getServiceInstanceId());
     Map<String, Object> endpoints = new HashMap<>();
     for (YBClient.ClientType clientType : YBClient.ClientType.values()) {
       List<HostAndPort> hostAndPorts = getEndpointForServiceType(clientType, universeUUID);
-      YBClient ybClient = YBClient.getClientForType(clientType, hostAndPorts, yugaByteConfigRepository);
+      YBClient ybClient = clientType.getInstance(hostAndPorts, yugaByteConfigRepository);
       try {
-        endpoints.put(clientType.name().toLowerCase(), ybClient.getCredentials());
+        endpoints.put(clientType.name().toLowerCase(), ybClient.getCredentials(request.getParameters()));
       } catch (Exception e) {}
 
     }
@@ -276,8 +277,7 @@ public class YugaByteAdminService {
               Integer.parseInt(credentialMap.get("port"))
           )
       );
-      YBClient ybClient = YBClient.getClientForType(
-          YBClient.ClientType.valueOf(endpoint.toUpperCase()),
+      YBClient ybClient = YBClient.ClientType.valueOf(endpoint.toUpperCase()).getInstance(
           hostAndPorts,
           yugaByteConfigRepository
       );

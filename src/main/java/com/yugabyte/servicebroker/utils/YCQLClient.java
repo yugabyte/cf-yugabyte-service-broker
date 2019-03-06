@@ -31,11 +31,29 @@ public class YCQLClient extends YBClient {
   private String ADMIN_CREDENTIAL_KEY = "ycql-admin-user";
   private static int DEFAULT_YCQL_PORT = 9042;
 
+  private enum CQLRole  {
+    ADMIN,
+    READ_ONLY;
+
+    public String grantStatement() {
+      switch (this) {
+        case ADMIN:
+          return "ALL PERMISSIONS ON ALL KEYSPACES TO ADMIN";
+        case READ_ONLY:
+          return "SELECT ON ALL KEYSPACES TO READ_ONLY";
+      }
+      return null;
+    }
+  }
+
   private Session session;
 
   public YCQLClient(List<HostAndPort> serviceHosts,
                     YugaByteConfigRepository yugaByteConfigRepository) {
     super(serviceHosts, yugaByteConfigRepository);
+  }
+
+  public Session getSession() {
     Cluster.Builder builder = Cluster.builder();
     getServiceHostPorts().forEach( serviceIpPort -> {
       builder.addContactPointsWithPorts(new InetSocketAddress(
@@ -45,7 +63,8 @@ public class YCQLClient extends YBClient {
     });
     // We will save the admin credentials in our config table.
     Map<String, String> adminCreds = getAdminCredentials(ADMIN_CREDENTIAL_KEY);
-    if (adminCreds.isEmpty()) {
+    boolean hasAdminCreds = adminCreds.isEmpty();
+    if (!hasAdminCreds) {
       adminCreds = ImmutableMap.of(
           "username", DEFAULT_CASSANDRA_USER,
           "password", DEFAULT_CASSANDRA_PASSWORD
@@ -56,6 +75,20 @@ public class YCQLClient extends YBClient {
                             adminCreds.get("password"));
     Cluster cluster = builder.build();
     session = cluster.connect();
+    createSystemRoles();
+    return session;
+  }
+
+  private void createSystemRoles() {
+    // We will also create two roles in the system, one is admin and other is
+    // readonly, off course users can add their own roles and grant them.
+    for (CQLRole role : CQLRole.values()) {
+      String createRole = String.format("CREATE ROLE IF NOT EXISTS %s", role);
+      session.execute(createRole);
+
+      String grantPermission = String.format("GRANT %s", role.grantStatement());
+      session.execute(grantPermission);
+    }
   }
 
   @Override
@@ -64,14 +97,19 @@ public class YCQLClient extends YBClient {
   }
 
   @Override
-  protected Map<String, String> createAuth() {
+  protected Map<String, String> createAuth(Map<String, Object> parameters) {
+    session = getSession();
     // Cassandra username are all lowercase and avoid numbers in the beginning.
     String username = generateRandomString(true).toLowerCase();
     String password = generateRandomString(false);
     String createRole = "CREATE ROLE " + username + " with superuser = false " +
         "and login = true and password = '" + password + "'";
+
     session.execute(createRole);
-    session.close();
+    String role = (String) parameters.getOrDefault("role", "admin");
+    String grantRole = String.format("GRANT %s to %s", role, username);
+    session.execute(grantRole);
+
     Map<String, String> credentials = new HashMap();
     credentials.put("username", username);
     credentials.put("password", password);
