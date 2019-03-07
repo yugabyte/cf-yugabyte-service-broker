@@ -81,7 +81,7 @@ public class YCQLClient extends YBClient {
 
   private void createSystemRoles() {
     // We will also create two roles in the system, one is admin and other is
-    // readonly, off course users can add their own roles and grant them.
+    // readonly, of course users can add their own roles and grant them.
     for (CQLRole role : CQLRole.values()) {
       String createRole = String.format("CREATE ROLE IF NOT EXISTS %s", role);
       session.execute(createRole);

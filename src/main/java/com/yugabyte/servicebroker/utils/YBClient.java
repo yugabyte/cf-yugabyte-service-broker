@@ -43,6 +43,9 @@ public abstract class YBClient {
   private List<HostAndPort> serviceHostPorts;
   protected List<HostAndPort> getServiceHostPorts() { return serviceHostPorts; }
   protected abstract int getDefaultPort();
+  /* Parameters can be any additional params that get sent at the time of service key creation
+     For now we only check to see if there is a param named `role` and use it, rest all are ignored.
+  */
   protected abstract Map<String, String> createAuth(Map<String, Object> parameters);
   public abstract void deleteAuth(Map<String, String> credentials);
 
