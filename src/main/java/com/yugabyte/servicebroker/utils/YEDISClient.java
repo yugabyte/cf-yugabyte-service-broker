@@ -34,13 +34,17 @@ public class YEDISClient extends YBClient {
   public YEDISClient(List<HostAndPort> serviceHosts,
                      YugaByteConfigRepository yugaByteConfigRepository) {
     super(serviceHosts, yugaByteConfigRepository);
-    HostAndPort hostAndPort = serviceHosts.get(0);
+  }
+
+  public Jedis getSession() {
+    HostAndPort hostAndPort = getServiceHostPorts().get(0);
     client = new Jedis(hostAndPort.getHostText(), hostAndPort.getPortOrDefault(DEFAULT_YEDIS_PORT));
     client.connect();
+    return client;
   }
 
   @Override
-  protected Map<String, String> createAuth() {
+  protected Map<String, String> createAuth(Map<String, Object> parameters) {
     // We would only call this method the first time to create a auth, after that, we would just fetch
     // the auth from yugabyte_config table.
     Map<String, String> credentials = getAdminCredentials(
@@ -52,6 +56,7 @@ public class YEDISClient extends YBClient {
       return credentials;
     }
 
+    client = getSession();
     String password = generateRandomString(false);
     client.configSet("requirepass", password);
     client.flushAll();

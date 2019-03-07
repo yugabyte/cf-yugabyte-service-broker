@@ -17,15 +17,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yugabyte.servicebroker.YugaByteServiceTestConfig;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
-import com.yugabyte.servicebroker.model.ServiceInstance;
 import com.yugabyte.servicebroker.repository.ServiceInstanceRepository;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.servicebroker.model.instance.CreateServiceInstanceRequest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -427,25 +424,5 @@ public class YugaByteAdminServiceTest  {
     } catch (YugaByteServiceException ye) {
       assertEquals("Unable to delete universe " + universeUUID, ye.getLocalizedMessage());
     }
-  }
-
-  @Ignore
-  // TODO: ADD TESTS
-  public void testGetEndpointForServiceType() {
-    UUID universeUUID = UUID.randomUUID();
-    CreateServiceInstanceRequest request = CreateServiceInstanceRequest.builder()
-        .serviceDefinitionId("sd-1")
-        .planId("plan-1")
-        .serviceInstanceId("instance-1").build();
-    ServiceInstance serviceInstance = new ServiceInstance(request, universeUUID.toString());
-    instanceRepository.save(serviceInstance);
-    mockServer.expect(ExpectedCount.once(),
-        requestTo("http://localhost:9000/api/universes/" + universeUUID + "/yqlservers"))
-        .andExpect(method(HttpMethod.GET))
-        .andRespond(withStatus(HttpStatus.OK)
-            .contentType(MediaType.APPLICATION_JSON)
-            .body("10.0.0.1:9042,10.0.0.2:9042,10.0.0.3:9042")
-        );
-    adminService.getUniverseServiceEndpoints("instance-1");
   }
 }

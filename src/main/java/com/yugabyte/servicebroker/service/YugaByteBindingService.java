@@ -54,7 +54,7 @@ public class YugaByteBindingService implements ServiceInstanceBindingService {
           .credentials(binding.get().getCredentials());
     } else {
       Map<String, Object> serviceEndpoints = adminService.getUniverseServiceEndpoints(
-          request.getServiceInstanceId()
+          request
       );
       ServiceBinding serviceBinding =
           new ServiceBinding(request.getBindingId(), request.getServiceInstanceId(), serviceEndpoints);
