@@ -20,6 +20,8 @@ import com.yugabyte.servicebroker.config.CatalogConfig;
 import com.yugabyte.servicebroker.config.PlanMetadata;
 import com.yugabyte.servicebroker.exception.YugaByteServiceException;
 import com.yugabyte.servicebroker.utils.CommonUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.servicebroker.model.instance.AsyncParameterizedServiceInstanceRequest;
 import org.springframework.cloud.servicebroker.model.instance.CreateServiceInstanceRequest;
@@ -38,7 +40,8 @@ import java.util.stream.StreamSupport;
 
 @Service
 public class YugaByteMetadataService {
-
+  private static final Log logger = LogFactory.getLog(YugaByteMetadataService.class);
+  
   private YugaByteAdminService adminService;
   private CatalogConfig catalogConfig;
 
@@ -199,7 +202,7 @@ public class YugaByteMetadataService {
   public JsonNode updateGflags(JsonNode currentPayload, AsyncParameterizedServiceInstanceRequest request) {
     Map<String, Object> parameters = request.getParameters();
     if (parameters == null) {
-      return currentPayload;
+      parameters = new HashMap<>();
     }
     Optional<JsonNode> primaryCluster =
         CommonUtils.getCluster(currentPayload.get("clusters"), "PRIMARY");
@@ -208,7 +211,6 @@ public class YugaByteMetadataService {
       // This is actually bad that we don't even have a primary cluster
       throw new YugaByteServiceException("Primary Cluster data not found.");
     }
-
 
     ObjectMapper mapper = new ObjectMapper();
     Map<String, Object> tserverFlags = (Map<String, Object>)

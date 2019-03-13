@@ -105,6 +105,7 @@ public class YugaByteAdminService {
   }
 
   private String doGetRaw(String endpoint) {
+    validateAndRefreshToken();
     HttpEntity<JsonNode> entity = getEntity(null);
     ResponseEntity<String> response = restTemplate.exchange(getApiUrl(endpoint), HttpMethod.GET, entity, String.class);
     if (response.getStatusCode() == HttpStatus.OK) {
@@ -259,8 +260,9 @@ public class YugaByteAdminService {
       YBClient ybClient = clientType.getInstance(hostAndPorts, yugaByteConfigRepository);
       try {
         endpoints.put(clientType.name().toLowerCase(), ybClient.getCredentials(request.getParameters()));
-      } catch (Exception e) {}
-
+      } catch (Exception e) {
+        logger.warn("Unable to add credentials for " + clientType.name().toLowerCase(), e);
+      }
     }
     return endpoints;
   }
