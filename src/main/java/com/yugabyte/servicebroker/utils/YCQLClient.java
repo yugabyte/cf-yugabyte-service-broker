@@ -118,6 +118,7 @@ public class YCQLClient extends YBClient {
 
   @Override
   public void deleteAuth(Map<String, String> credentials) {
+    session = getSession();
     String username = credentials.get("username");
     String dropRole = "DROP ROLE IF EXISTS " + username;
     session.execute(dropRole);
