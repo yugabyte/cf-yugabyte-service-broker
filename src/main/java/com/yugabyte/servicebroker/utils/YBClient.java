@@ -18,6 +18,7 @@ import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
 import org.apache.commons.collections.map.HashedMap;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +74,9 @@ public abstract class YBClient {
   public Map<String, String> getCredentials(Map<String, Object> parameters) {
     String serviceHost = serviceHostPorts.stream().map(sh -> sh.getHostText()).collect(Collectors.joining( "," ));
     int servicePort = serviceHostPorts.get(0).getPortOrDefault(getDefaultPort());
+    if (parameters == null) {
+      parameters = new HashMap<>();
+    }
     Map<String, String> credentials =  createAuth(parameters);
     credentials.put("host", serviceHost);
     credentials.put("port", String.valueOf(servicePort));
