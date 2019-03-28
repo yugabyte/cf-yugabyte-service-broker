@@ -17,6 +17,8 @@ import com.datastax.driver.core.Session;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.yugabyte.servicebroker.repository.YugaByteConfigRepository;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -26,6 +28,8 @@ import java.util.Map;
 import static com.yugabyte.servicebroker.utils.CommonUtils.generateRandomString;
 
 public class YCQLClient extends YBClient {
+  private static final Log logger = LogFactory.getLog(YCQLClient.class);
+
   private static String DEFAULT_CASSANDRA_USER = "cassandra";
   private static String DEFAULT_CASSANDRA_PASSWORD = "cassandra";
   private String ADMIN_CREDENTIAL_KEY = "ycql-admin-user";
@@ -63,7 +67,7 @@ public class YCQLClient extends YBClient {
     });
     // We will save the admin credentials in our config table.
     Map<String, String> adminCreds = getAdminCredentials(ADMIN_CREDENTIAL_KEY);
-    boolean hasAdminCreds = adminCreds.isEmpty();
+    boolean hasAdminCreds = !adminCreds.isEmpty();
     if (!hasAdminCreds) {
       adminCreds = ImmutableMap.of(
           "username", DEFAULT_CASSANDRA_USER,
@@ -118,10 +122,14 @@ public class YCQLClient extends YBClient {
 
   @Override
   public void deleteAuth(Map<String, String> credentials) {
-    session = getSession();
-    String username = credentials.get("username");
-    String dropRole = "DROP ROLE IF EXISTS " + username;
-    session.execute(dropRole);
-    session.close();
+    if (!credentials.containsKey("username")) {
+      logger.warn("Role name is empty in credentials: " + credentials);
+    } else {
+      session = getSession();
+      String username = credentials.get("username");
+      String dropRole = "DROP ROLE IF EXISTS " + username;
+      session.execute(dropRole);
+      session.close();
+    }
   }
 }
