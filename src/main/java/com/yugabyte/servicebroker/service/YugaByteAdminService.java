@@ -245,6 +245,9 @@ public class YugaByteAdminService {
       case YEDIS:
         url = String.format("universes/%s/redisservers",  universeUUID);
         break;
+      case YSQL:
+        url = String.format("universes/%s/ysqlservers", universeUUID);
+        break;
     }
     String serverEndpointString =  doGetRaw(url);
     return CommonUtils.convertToHostPorts(

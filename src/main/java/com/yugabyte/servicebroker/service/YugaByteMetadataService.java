@@ -41,7 +41,7 @@ import java.util.stream.StreamSupport;
 @Service
 public class YugaByteMetadataService {
   private static final Log logger = LogFactory.getLog(YugaByteMetadataService.class);
-  
+
   private YugaByteAdminService adminService;
   private CatalogConfig catalogConfig;
 
@@ -179,6 +179,7 @@ public class YugaByteMetadataService {
     userIntent.put("replicationFactor", replication);
     userIntent.put("universeName", universeName);
     userIntent.put("ybSoftwareVersion", ybSoftwareVersion);
+    userIntent.put("enableYSQL", "true");
     if (!accessKeys.isEmpty()) {
       userIntent.put("accessKeyCode", accessKeys.get(0));
     }
