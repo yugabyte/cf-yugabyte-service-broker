@@ -67,8 +67,6 @@ public class YSQLClient extends YBClient {
   }
 
   private void createSystemRoles() {
-    // We will also create two roles in the system, one is admin and other is
-    // readonly, of course users can add their own roles and grant them.
     String checkRoleStatement = "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '%s'";
     String createRoleStatement = "CREATE ROLE %s %s";
     for (YSQLRole role : YSQLRole.values()) {
