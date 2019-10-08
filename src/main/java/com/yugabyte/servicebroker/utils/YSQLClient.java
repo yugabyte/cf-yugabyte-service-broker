@@ -32,6 +32,7 @@ public class YSQLClient extends YBClient {
 
   private static String DEFAULT_YSQL_USER = "yugabyte";
   private static String DEFAULT_YSQL_PASSWORD = "yugabyte";
+  private static String DEFAULT_YSQL_DATABASE = "yugabyte";
   private String ADMIN_CREDENTIAL_KEY = "ysql-admin-user";
   private static int DEFAULT_YSQL_PORT = 5433;
 
@@ -55,7 +56,7 @@ public class YSQLClient extends YBClient {
   private void getConnection() {
     HostAndPort initialHostPort = getServiceHostPorts().get(0);
     String jdbcUrl = String.format("jdbc:postgresql://%s:%d/%s", initialHostPort.getHostText(),
-            initialHostPort.getPortOrDefault(getDefaultPort()), DEFAULT_YSQL_USER);
+            initialHostPort.getPortOrDefault(getDefaultPort()), DEFAULT_YSQL_DATABASE);
 
     try {
       connection = DriverManager.getConnection(jdbcUrl, DEFAULT_YSQL_USER, DEFAULT_YSQL_PASSWORD);
