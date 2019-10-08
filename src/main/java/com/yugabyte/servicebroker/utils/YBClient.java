@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 public abstract class YBClient {
   public enum ClientType {
+    YSQL,
     YCQL,
     YEDIS;
 
@@ -36,6 +37,8 @@ public abstract class YBClient {
           return new YCQLClient(serviceHosts, yugaByteConfigRepository);
         case YEDIS:
           return new YEDISClient(serviceHosts, yugaByteConfigRepository);
+        case YSQL:
+          return new YSQLClient(serviceHosts, yugaByteConfigRepository);
       }
       return null;
     }

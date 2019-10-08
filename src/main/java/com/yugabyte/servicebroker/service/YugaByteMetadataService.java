@@ -41,7 +41,7 @@ import java.util.stream.StreamSupport;
 @Service
 public class YugaByteMetadataService {
   private static final Log logger = LogFactory.getLog(YugaByteMetadataService.class);
-  
+
   private YugaByteAdminService adminService;
   private CatalogConfig catalogConfig;
 
@@ -146,6 +146,8 @@ public class YugaByteMetadataService {
         parameters.getOrDefault("provider_type", DEFAULT_PROVIDER).toString();
     String kubeProvider =
         parameters.getOrDefault("kube_provider", DEFAULT_KUBERNETES_PROVIDER).toString();
+    boolean enableYSQL =
+        Boolean.parseBoolean(parameters.getOrDefault("enable_ysql", "false").toString());
     List<String> regionCodes = (ArrayList<String>) parameters.getOrDefault("region_codes", new ArrayList());
 
     JsonNode provider = fetchProvider(providerType, kubeProvider);
@@ -179,6 +181,7 @@ public class YugaByteMetadataService {
     userIntent.put("replicationFactor", replication);
     userIntent.put("universeName", universeName);
     userIntent.put("ybSoftwareVersion", ybSoftwareVersion);
+    userIntent.put("enableYSQL", enableYSQL);
     if (!accessKeys.isEmpty()) {
       userIntent.put("accessKeyCode", accessKeys.get(0));
     }

@@ -39,6 +39,7 @@ dependencies {
     compile 'mysql:mysql-connector-java'
     compile group: 'com.yugabyte', name: 'cassandra-driver-core', version: '3.2.0-yb-18'
 	compile group: 'com.yugabyte', name: 'jedis', version: '2.9.0-yb-11'
+	compile group: 'com.yugabyte', name: 'ysql', version: '42.2.7-yb-2'
 
 	testCompile("org.springframework.boot:spring-boot-starter-test")
 	testCompile group: 'com.h2database', name: 'h2', version: '1.3.148'
