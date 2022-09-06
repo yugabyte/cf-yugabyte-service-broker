@@ -1,1 +1,1 @@
-# YugaByte DB Service Broker for Cloud Foundry
+# YugabyteDB Service Broker for Cloud Foundry
